@@ -1,7 +1,8 @@
 #!/usr/bin/env zsh
+#
 if [[ "${(%):-%N}" == "${0}" ]]; then
   echo "⚠️  This file must be sourced, not executed." >&2
-  exit 1
+  return 1
 fi
 # ===================================================================
 #  Zsh Disk Guard Plugin
