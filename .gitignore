@@ -1,0 +1,13 @@
+# Zsh
+*.zwc
+.zcompdump*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
