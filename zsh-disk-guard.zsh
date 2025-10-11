@@ -406,12 +406,12 @@ _zsh_disk_guard_rsync() {
 
 zsh-disk-guard-enable() {
     ZSH_DISK_GUARD_ENABLED=1
-    echo "✓ Disk check enabled"
+    echo "✓ Disk guard enabled"
 }
 
 zsh-disk-guard-disable() {
     ZSH_DISK_GUARD_ENABLED=0
-    echo "✓ Disk check disabled"
+    echo "✓ Disk guard disabled"
 }
 
 zsh-disk-guard-status() {
