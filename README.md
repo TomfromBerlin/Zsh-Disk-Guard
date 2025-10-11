@@ -1,10 +1,12 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/Zsh%20Plugin-zsh--disk--guard-blue?style=flat-square">
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
-  <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=flat-square">
+<p align="left">
+  <img src="https://img.shields.io/badge/Zsh%20Plugin-zsh--disk--guard-blue">
+  <img src="https://img.shields.io/badge/zsh-%E2%89%A55.0-blue">  
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey">
+  <img src="https://img.shields.io/badge/license-MIT-green">
+  <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=round-square">
 </p>
 
-# Zsh Disk Check Plugin
+# Zsh Disk Guard Plugin
 
 🛡️ Intelligent disk space monitoring for write operations in Zsh
 
@@ -36,7 +38,7 @@ Upgrade: See [zsh.org](https://www.zsh.org/)
  
 <details><summary>Standard Unix tools</summary>
 
-- df: disk free displays the free disk space. Only mounted partitions are displayed.
+- df: Displays the free disk space. Only mounted partitions are displayed.
 - stat: Used here to display the file system status instead of the file status
 - du: Displays the used disk space.
 
@@ -56,7 +58,7 @@ Add to your `.zshrc`:
 # where do you want to store your plugins?
 ZPLUGINDIR=$HOME/.config/zsh/plugins
 # <------------------>
-# clone zsh_unplugged and store it with your other plugins and source it
+# get zsh_unplugged and store it with your other plugins and source it
 if [[ ! -d $ZPLUGINDIR/zsh_unplugged ]]; then
   git clone --quiet https://github.com/mattmc3/zsh_unplugged $ZPLUGINDIR/zsh_unplugged
 fi
@@ -147,7 +149,7 @@ rm -rf ~/.config/zsh/plugins/zsh-disk-guard
 
 ### 📋 Two-Stage Checking
 
-The plugin performs a quick or deep disk check depending on the data size and file type before write operations.
+The plugin performs a quick or deep disk check depending on the data size before write operations.
 
 - #### Quick Check (files <100 MiB):
 
@@ -207,7 +209,7 @@ export ZSH_DISK_GUARD_COMMANDS="cp mv rsync"
 
 ## 🖥️ Usage
 
-Since this is a plugin, manual execution is neither necessary nor useful. The plugin reacts to certain triggers and executes the corresponding actions automatically. The active status of the plugin is usually only noticed when the available memory falls below the given threshold. The plugin's status can be checked via the command line. For more information, see the "Control" section.
+Since this is a plugin, manual execution is neither necessary nor useful. The plugin reacts to certain triggers and executes the corresponding actions automatically. The active status of the plugin is usually only noticed when the available disk space falls below the given threshold. The plugin's status can be checked via the command line. For more information, see the "Control" section.
 
 <details><summary> ← Click here to view an output sample</summary>
 
@@ -254,4 +256,3 @@ License: MIT
 Author: Tom (from Berlin)
 
 _Memo to self: They'll download this plugin again and not leave a single comment. Yes, not even a tiny star. But at least my code is traveling around the world._
-
