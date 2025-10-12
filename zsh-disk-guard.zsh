@@ -6,7 +6,7 @@
 #
 #  Author: Tom from Berlin
 #  License: MIT
-#  Repository: https://github.com/TomfromBerlin/zsh-disk-guard
+#  Repository: https://github.com/TomfromBerlin/Zsh-Disk-Guard
 # ===================================================================
 
 # ──────────────────────────────────────────────────────────────────
