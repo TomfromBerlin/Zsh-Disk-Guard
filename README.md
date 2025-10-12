@@ -43,9 +43,9 @@ Upgrade: See [zsh.org](https://www.zsh.org/)
  
 <details><summary>Standard Unix tools</summary>
 
-- df: Displays the free disk space. Only mounted partitions are displayed.
-- stat: Used here to display the file system status instead of the file status
-- du: Displays the used disk space.
+- df: Checks and displays the free disk space. Only mounted partitions are checked.
+- stat: Used here to determine the file system status instead of the file status.
+- du: Checks and displays the used disk space.
 
 </details>
 
@@ -80,7 +80,7 @@ repos=(
 )
 ```
 
-other plugin manager and frameworks:
+other pluginmanagers and frameworks:
 
 ### Antigen
 
@@ -112,7 +112,7 @@ add to your .zshrc:
 zinit light TomfromBerlin/zsh-disk-guard
 ```
 
-You can load the plugin with any other plugin manager.
+You can load the plugin with any other pluginmanagers as well.
 
 ⚠️ **Regardless which pluginmanager you use, the plugin may interfere with other plugins that monitor disk operations or use the wrapped commands (*cp*, *mv*, *rsync*). ⚠️**
 
