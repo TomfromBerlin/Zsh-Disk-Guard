@@ -97,7 +97,7 @@ plugin-load $repos
 # <------------------------------------------------------------------------------------>
 ```
 
-💡 Best practice: place the second code block right before your prompt definitions and - as allready mentioned - mandatory before `autoload -Uz promptinit && promptinit`.
+💡 Best practice: place the second code block right before your prompt definitions and - as already mentioned - mandatory before `autoload -Uz promptinit && promptinit`.
 
 
 Other pluginmanagers and frameworks:
