@@ -6,7 +6,7 @@
 #
 #  Author: Tom from Berlin
 #  License: MIT
-#  Repository: https://github.com/TomfromBerlin/Zsh-Disk-Guard
+#  Repository: https://github.com/TomfromBerlin/zsh-disk-guard
 # ===================================================================
 
 # ──────────────────────────────────────────────────────────────────
@@ -34,8 +34,8 @@ fi
 0="${ZERO:-${${0:#$ZSH_ARGZERO}:-${(%):-%N}}}"
 0="${${(M)0:#/*}:-$PWD/$0}"
 
-[[ -n "$_zsh_disk_guard_LOADED" ]] && return
-typeset -g _zsh_disk_guard_LOADED=1
+[[ -n "$_zsh_disk_guard_loaded" ]] && return
+typeset -g _zsh_disk_guard_loaded=1
 typeset -g ZSH_DISK_GUARD_PLUGIN_DIR="${0:A:h}"
 
 # ──────────────────────────────────────────────────────────────────
@@ -473,7 +473,7 @@ zsh_disk_guard_plugin_unload() {
 
     # Unset variables
     unset ZSH_DISK_GUARD_{THRESHOLD,DEEP_THRESHOLD,DEBUG,ENABLED,COMMANDS}
-    unset _zsh_disk_guard_LOADED ZSH_DISK_GUARD_PLUGIN_DIR
+    unset _zsh_disk_guard_loaded ZSH_DISK_GUARD_PLUGIN_DIR
     _zsh_disk_guard_debug "Plugin unloaded successfully."
 }
 
