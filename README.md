@@ -79,7 +79,7 @@ autoload -Uz zsh-defer
 # make list of the Zsh plugins you use (Consider paying attention to the loading order)
 repos=(
   # ... your other plugins ...
-  TomfromBerlin/zsh-disk-guard
+  TomfromBerlin/Zsh-Disk-Guard
 )
 ```
 
