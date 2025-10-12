@@ -6,7 +6,7 @@
 0="${ZERO:-${${${(M)${0::=${(%):-%x}}:#/*}:-$PWD/$0}:A}}"
 local ZERO="$0"
 # https://zdharma-continuum.github.io/Zsh-100-Commits-Club/Zsh-Plugin-Standard.html#indicator
-if [[ ${zsh_loaded_plugins[-1]} != */Zsh-Disk-Guard && -z ${fpath[(r)${0:h}]} ]] {
+if [[ ${zsh_loaded_plugins[-1]} != */zsh-disk-guard && -z ${fpath[(r)${0:h}]} ]] {
     fpath+=( "${0:h}" )
 }
 source ${0:A:h}/zsh-disk-guard.zsh
