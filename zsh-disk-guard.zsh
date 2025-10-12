@@ -62,6 +62,7 @@ typeset -g ZSH_DISK_GUARD_PLUGIN_DIR="${0:A:h}"
 # ──────────────────────────────────────────────────────────────────
 
 _zsh_disk_guard_debug() {
+    local LC_ALL=C
     [[ "$ZSH_DISK_GUARD_DEBUG" == "1" ]] && print -P "%F{cyan}DEBUG:%f $*" >&2
 }
 
@@ -81,32 +82,38 @@ _zsh_disk_guard_debug() {
 # Returns:
 #   Numeric value (bytes or percentage) or mountpoint path
 # ──────────────────────────────────────────────────────────────
+
+_zsh_disk_guard_is_number() {
+    [[ "$1" =~ ^[0-9]+([.][0-9]+)?$ ]]
+}
+
 zsh_disk_guard_df() {
+    local LC_ALL=C
     local metric=$1
     local target=$2
     local is_gnu=0
     local result
 
     # Detect GNU df
-    if df --help 2>&1 | grep -q -- '--output'; then
+    if command df --help 2>&1 | grep -q -- '--output'; then
         is_gnu=1
     fi
 
     if (( is_gnu )); then
         case $metric in
             pcent)
-                result=$(df --output=pcent "$target" 2>/dev/null | tail -n1 | tr -d ' %')
+                result=$(command df --output=pcent "$target" 2>/dev/null | tail -n1 | tr -d ' %')
                 ;;
             avail)
-                result=$(df --output=avail "$target" 2>/dev/null | tail -n1)
+                result=$(command df --output=avail "$target" 2>/dev/null | tail -n1 | tr -d ".,")
                 result=$((result * 1024))
                 ;;
             size)
-                result=$(df --output=size "$target" 2>/dev/null | tail -n1)
+                result=$(command df --output=size "$target" 2>/dev/null | tail -n1 | tr -d ".,")
                 result=$((result * 1024))
                 ;;
             mountpoint)
-                result=$(df --output=target "$target" 2>/dev/null | tail -n1)
+                result=$(command df --output=target "$target" 2>/dev/null | tail -n1 | tr -d ".,")
                 ;;
             *)
                 echo "Unknown metric: $metric" >&2
@@ -116,7 +123,7 @@ zsh_disk_guard_df() {
     else
         # BSD/macOS fallback
         local line
-        line=$(df -k "$target" 2>/dev/null | tail -1)
+        line=$(command df -k "$target" 2>/dev/null | tail -1)
         case $metric in
             pcent)
                 result=$(echo "$line" | awk '{print int($5)}')
@@ -142,18 +149,20 @@ zsh_disk_guard_df() {
     return 0
 }
 
+# --- Quick size ---
 _zsh_disk_guard_quick_size() {
+    local LC_ALL=C
     local total=0
-    local item
+    local item size
 
     for item in "$@"; do
         [[ "$item" == -* ]] && continue
         [[ ! -e "$item" ]] && continue
 
         if [[ -f "$item" ]]; then
-            local size
-            size=$(stat -c%s "$item" 2>/dev/null || stat -f%z "$item" 2>/dev/null || echo 0)
-            total=$((total + size))
+            size=$(command stat -c%s "$item" 2>/dev/null || command stat -f%z "$item" 2>/dev/null || echo 0)
+            [[ "$size" =~ ^[0-9]+$ ]] || size=0
+            (( total += size ))
         elif [[ -d "$item" ]]; then
             return 1  # Needs deep check
         fi
@@ -163,68 +172,66 @@ _zsh_disk_guard_quick_size() {
     return 0
 }
 
+# --- Deep size ---
 _zsh_disk_guard_deep_size() {
+    local LC_ALL=C
     local total=0
-    local item
+    local item size
 
     for item in "$@"; do
         [[ "$item" == -* ]] && continue
         [[ ! -e "$item" ]] && continue
 
         if [[ -f "$item" ]]; then
-            local size
-            size=$(stat -c%s "$item" 2>/dev/null || stat -f%z "$item" 2>/dev/null || echo 0)
-            total=$((total + size))
+            size=$(command stat -c%s "$item" 2>/dev/null || command stat -f%z "$item" 2>/dev/null || echo 0)
         elif [[ -d "$item" ]]; then
-            local size
-            size=$(du -sb "$item" 2>/dev/null | cut -f1 || echo 0)
-            total=$((total + size))
+            size=$(command du -sb "$item" 2>/dev/null | cut -f1 || echo 0)
+        else
+            size=0
         fi
+        [[ "$size" =~ ^[0-9]+$ ]] || size=0
+        (( total += size ))
     done
 
     echo $total
 }
 
+# --- Format size ---
 _zsh_disk_guard_format_size() {
+    local LC_ALL=C
     local bytes=$1
+    local gib rem_gib mib rem_mib kib
 
-    # Calculate gibibytes
-    local gib
-    gib=$(( bytes / 1073741824 ))
-    local rem_gib
-    rem_gib=$(( (bytes % 1073741824) / 107374182 ))  # One decimal place
+    [[ "$bytes" =~ ^[0-9]+$ ]] || { echo "n/a"; return 1; }
+
+    (( gib = bytes / 1073741824 ))
+    (( rem_gib = (bytes % 1073741824) / 107374182 ))
 
     if (( gib > 0 )); then
-        # Format as GiB with one decimal
-        echo "${gib}.${rem_gb} GiB"
-        return
+        echo "${gib}.${rem_gib} GiB"
+        return 0
     fi
 
-    # Calculate mebibytes
-    local mib
-    mib=$(( bytes / 1048576 ))
-    local rem_mib
-    rem_mib=$(( (bytes % 1048576) / 104857 ))  # One decimal place
+    (( mib = bytes / 1048576 ))
+    (( rem_mib = (bytes % 1048576) / 104857 ))
 
     if (( mib > 0 )); then
-        # Format as MiB with one decimal
-        echo "${mib}.${rem_mb} MiB"
-        return
+        echo "${mib}.${rem_mib} MiB"
+        return 0
     fi
 
-    # Calculate kibibytes
-    local kib
-    kib=$(( bytes / 1024 ))
+    (( kib = bytes / 1024 ))
     if (( kib > 0 )); then
         echo "${kib} KiB"
-        return
+        return 0
     fi
 
-    # Fallback to bytes
     echo "${bytes} Bytes"
 }
 
+# --- Verify ---
 _zsh_disk_guard_verify() {
+    local LC_ALL=C
     local target="$1"
     shift
     local sources=("$@")
@@ -232,45 +239,44 @@ _zsh_disk_guard_verify() {
     _zsh_disk_guard_debug "Checking target: $target"
     [[ -z "$target" ]] && return 0
 
-    # Resolve target directory
+    target=${target:a}
+    _zsh_disk_guard_debug "Resolved target: $target"
+
     if [[ ! -d "$target" ]]; then
+        _zsh_disk_guard_debug "Not a directory, extracting path..."
         if [[ $target == */* ]]; then
             target=${target%/*}
             [[ -z "$target" ]] && target=/
         else
             target=.
         fi
+        _zsh_disk_guard_debug "Extracted to: $target"
     fi
 
-    # Get mount point
+    _zsh_disk_guard_debug "Getting mountpoint for: $target"
     local mountpoint
-    mountpoint=$(zsh_disk_guard_df mountpoint "$target")
-    # mountpoint=$(df --output=target "$target" 2>/dev/null | tail -n1)
-    [[ -z "$mountpoint" ]] && return 0
+    mountpoint=$(command df --output=target "$target" 2>/dev/null | tail -n1 | tr -d ".,")
+    _zsh_disk_guard_debug "Mountpoint: '$mountpoint'"
 
-    # Check current usage
+    [[ -z "$mountpoint" ]] && { _zsh_disk_guard_debug "Mountpoint empty, aborting"; return 0; }
+
+    _zsh_disk_guard_debug "Checking usage of: $mountpoint"
     local usage
-    usage=$(zsh_disk_guard_df pcent "$mountpoint")
+    usage=$(command df --output=pcent "$mountpoint" 2>/dev/null | tail -n1 | tr -d ' %')
+    _zsh_disk_guard_debug "Raw usage: '$usage'"
 
-    # Quick size estimate
-    local estimated_size
-    local needs_deep_check=0
+    [[ "$usage" =~ ^[0-9]+$ ]] || { _zsh_disk_guard_debug "Usage not numeric, aborting"; return 0; }
+
+    _zsh_disk_guard_debug "Parsed usage: ${usage}% (threshold: ${ZSH_DISK_GUARD_THRESHOLD}%)"
+
+    local estimated_size needs_deep_check=0 total_size available total_space after_write usage_after
 
     estimated_size=$(_zsh_disk_guard_quick_size "${sources[@]}")
-    if [[ $? -ne 0 ]]; then
-        needs_deep_check=1
-        _zsh_disk_guard_debug "Directory detected → deep check required"
-    fi
+    [[ $? -ne 0 ]] && { needs_deep_check=1; _zsh_disk_guard_debug "Directory detected → deep check required"; }
 
-    # Decide: do we need deep check?
-    local total_size
     if (( needs_deep_check == 0 )); then
         _zsh_disk_guard_debug "Quick check: $(_zsh_disk_guard_format_size $estimated_size)"
-
         if (( estimated_size < ZSH_DISK_GUARD_DEEP_THRESHOLD )); then
-            _zsh_disk_guard_debug "Below deep check threshold → simple warning only"
-
-            # Only usage warning
             if (( usage >= ZSH_DISK_GUARD_THRESHOLD )); then
                 echo "⚠️  Warning: Partition $mountpoint is ${usage}% full!" >&2
                 if [[ -o interactive || -t 0 ]]; then
@@ -283,42 +289,40 @@ _zsh_disk_guard_verify() {
             fi
             return 0
         fi
-
         total_size=$estimated_size
     else
         _zsh_disk_guard_debug "Running deep check for ${(j:,:)sources}"
         total_size=$(_zsh_disk_guard_deep_size "${sources[@]}")
     fi
 
+    [[ "$total_size" =~ ^[0-9]+$ ]] || total_size=0
     _zsh_disk_guard_debug "Total size: $(_zsh_disk_guard_format_size $total_size)"
 
-    # Get available space
-    local available
     available=$(zsh_disk_guard_df avail "$mountpoint")
-#    $(df --output=avail "$mountpoint" 2>/dev/null | tail -n1)
-    available=$((available * 1024))
+    [[ "$available" =~ ^[0-9]+$ ]] || available=0
+    (( available *= 1024 ))
 
-    # Check 1: Enough space?
     if (( total_size > available )); then
         echo "❌ ERROR: Not enough disk space on $mountpoint!" >&2
         echo "   Required: $(_zsh_disk_guard_format_size $total_size)" >&2
         echo "   Available: $(_zsh_disk_guard_format_size $available)" >&2
         echo "   Missing: $(_zsh_disk_guard_format_size $((total_size - available)))" >&2
         return 1
+    else
+        echo "   Required: $(_zsh_disk_guard_format_size $total_size)" >&2
+        echo "   Available: $(_zsh_disk_guard_format_size $available)" >&2
     fi
 
-    # Check 2: Would exceed threshold?
-    local total_space
     total_space=$(zsh_disk_guard_df size "$mountpoint")
-#    $(df --output=size "$mountpoint" 2>/dev/null | tail -n1)
-    total_space=$((total_space * 1024))
-    local after_write=$((total_space - available + total_size))
-    local usage_after=0
+    [[ "$total_space" =~ ^[0-9]+$ ]] || total_space=0
+    (( total_space *= 1024 ))
+
     if (( total_space > 0 )); then
-       usage_after=$(( after_write * 100 / total_space ))
+        (( after_write = total_space - available + total_size ))
+        (( usage_after = after_write * 100 / total_space ))
     else
-       _zsh_disk_guard_debug "Invalid total_space ('df' may be broken!), skipping calculation."
-       return 0
+        _zsh_disk_guard_debug "Invalid total_space, skipping calculation."
+        return 0
     fi
 
     if (( usage_after >= ZSH_DISK_GUARD_THRESHOLD )); then
@@ -336,6 +340,10 @@ _zsh_disk_guard_verify() {
         fi
     fi
 
+    # Erfolgreich abgeschlossen
+    echo "✅ Disk guard check passed for $mountpoint." >&2
+    echo "📦 Total data size: $(_zsh_disk_guard_format_size $total_size)" >&2
+
     return 0
 }
 
@@ -344,6 +352,7 @@ _zsh_disk_guard_verify() {
 # ──────────────────────────────────────────────────────────────────
 
 _zsh_disk_guard_cp() {
+    local LC_ALL=C
     [[ "$ZSH_DISK_GUARD_ENABLED" != "1" ]] && { command cp "$@"; return }
 
     local args=("$@")
@@ -355,6 +364,7 @@ _zsh_disk_guard_cp() {
 }
 
 _zsh_disk_guard_mv() {
+    local LC_ALL=C
     [[ "$ZSH_DISK_GUARD_ENABLED" != "1" ]] && { command mv "$@"; return }
 
     local args=("$@")
@@ -366,6 +376,7 @@ _zsh_disk_guard_mv() {
 }
 
 _zsh_disk_guard_rsync() {
+    local LC_ALL=C
     [[ "$ZSH_DISK_GUARD_ENABLED" != "1" ]] && { command rsync "$@"; return }
 
     local args=("$@")
