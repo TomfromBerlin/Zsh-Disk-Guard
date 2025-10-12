@@ -1,10 +1,15 @@
 <p align="left">
-  <img src="https://img.shields.io/badge/Zsh%20Plugin-zsh--disk--guard-blue">
-  <img src="https://img.shields.io/badge/zsh-%E2%89%A55.0-blue">  
-  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey">
-  <img src="https://img.shields.io/badge/license-MIT-green">
-  <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=round-square">
+  <img src="https://img.shields.io/badge/Zsh%20Plugin-zsh--disk--guard-blue?style=plastic">
+  <img src="https://img.shields.io/badge/zsh-%E2%89%A55.0-blue?style=plastic">
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey?style=plastic">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=plastic">
+  <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=plastic">
+  <img src="https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue">
 </p>
+
+<!--
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue)
+-->
 
 # Zsh Disk Guard Plugin
 
