@@ -1,11 +1,13 @@
-<p align="left">
+<p align="center">
   <img src="https://img.shields.io/badge/Zsh%20Plugin-zsh--disk--guard-blue?style=plastic">
-  <img src="https://img.shields.io/badge/zsh-%E2%89%A55.0-blue?style=plastic">
+  <img src="https://img.shields.io/badge/zsh%20version-%E2%89%A55.0-blue?style=plastic">
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey?style=plastic">
   <img src="https://img.shields.io/badge/license-MIT-green?style=plastic">
   <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=plastic">
-  <img src="https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue">
-</p>
+  <img src="https://img.shields.io/github/downloads/TomfromBerlin/Zsh-Disk-Guard/total?style=plastic&labelColor=grey&color=blue">
+  </p>
+  
+_Memo to self: They'll clone this repository again and again and not leave a single comment. Yes, not even a tiny star. But at least my code is traveling around the world._
 
 <!--
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue)
@@ -15,7 +17,7 @@
 
 🛡️ Intelligent disk space monitoring for write operations in Zsh
 
-## 💡 Features
+## ✨ Features
 
 - ⚡ **Smart Performance**: Staged checking based on data size
 - 🎯 **Predictive**: Checks if there's enough space *before* writing
@@ -23,7 +25,7 @@
 - 🚀 **Zero Overhead**: Minimal checks for small files
 - 📦 **Plugin Manager Ready**: Works with oh-my-zsh, zinit, antigen, etc.
 
-## Why This Plugin?
+## ❔ Why This Plugin?
 
 - ✅ With: Predictive warnings, safe operations, peace of mind
 - ❌ Without: Disk full errors mid-copy, wasted time, corrupted files
@@ -58,29 +60,47 @@ Add to your `.zshrc`:
 
 ```zsh
 # (Do not use the following 15 lines along with other plugin managers!)
+# <------------------------------------------------------------------------------------>
 # ZSH UNPLUGGED start
-# <------------------>
+#
 # where do you want to store your plugins?
 ZPLUGINDIR=$HOME/.config/zsh/plugins
-# <------------------>
+#
 # get zsh_unplugged and store it with your other plugins and source it
 if [[ ! -d $ZPLUGINDIR/zsh_unplugged ]]; then
   git clone --quiet https://github.com/mattmc3/zsh_unplugged $ZPLUGINDIR/zsh_unplugged
 fi
 source $ZPLUGINDIR/zsh_unplugged/zsh_unplugged.zsh
-# <------------------>
+#
 # extend fpath and load zsh-defer
 fpath+=($ZPLUGINDIR/zsh-defer)
 autoload -Uz zsh-defer
-# <------------------>
-# make list of the Zsh plugins you use
+#
+# make list of the Zsh plugins you use (Consider paying attention to the loading order)
 repos=(
   # ... your other plugins ...
   TomfromBerlin/zsh-disk-guard
 )
 ```
 
-other pluginmanagers and frameworks:
+Insert the following code block before `autoload -Uz promptinit && promptinit`
+
+```
+# tweak compinit
+alias compinit='compinit-tweak'
+compinit-tweak() {
+grep -q "ZPLUGINDIR/*/*" <<< "${@}" && \compinit "${@}"
+}
+# now load plugins
+plugin-load $repos
+# ZSH UNPLUGGED end
+# <------------------------------------------------------------------------------------>
+```
+
+💡 Best practice: place the second code block right before your prompt definitions and - as allready mentioned - mandatory before `autoload -Uz promptinit && promptinit`.
+
+
+Other pluginmanagers and frameworks:
 
 ### Antigen
 
@@ -150,7 +170,7 @@ rm -rf ~/.config/zsh/plugins/zsh-disk-guard
 
 </details>
 
-## How It Works
+## 🪄 How It Works
 
 ### 📋 Two-Stage Checking
 
@@ -238,7 +258,7 @@ rsync -av files/ user@remote:/backup/  # No local check
 ```
 </details>
 
-## 💻 Control
+## 🎛️ Control
 
 ```zsh
 zsh-disk-guard-status    # Shows current configuration
@@ -259,5 +279,3 @@ Issues and PRs welcome at github.com/TomfromBerlin/zsh-disk-guard
 License: MIT
 
 Author: Tom (from Berlin)
-
-_Memo to self: They'll download this plugin again and not leave a single comment. Yes, not even a tiny star. But at least my code is traveling around the world._
