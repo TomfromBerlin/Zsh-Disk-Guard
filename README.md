@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20BSD-lightgrey?style=plastic">
   <img src="https://img.shields.io/badge/license-MIT-green?style=plastic">
   <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=plastic">
-  <img src="https://img.shields.io/github/downloads/TomfromBerlin/Zsh-Disk-Guard/total?style=plastic&labelColor=grey&color=blue">
+  <img src="https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue">
   </p>
   
 _Memo to self: They'll clone this repository again and again and not leave a single comment. Yes, not even a tiny star. But at least my code is traveling around the world._
