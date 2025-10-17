@@ -430,7 +430,8 @@ _zsh_disk_guard_progress_bar() {
     bar+=']'
     printf '\e[s' # save the cursor position
       printf '\e[%d;1H' "$LINES"  #  -> bottom row, first column  (1-based!)
-        printf '%s %s/%s %s%s%%%s' "$bar" "$current" "$len" "$perc_color" "$perc_done" "$NC"
+#        printf '%s %s/%s %s%s%%%s' "$bar" "$current" "$len" "$perc_color" "$perc_done" "$NC"
+        printf '%s %s%s%%%s' "$bar" "$perc_color" "$perc_done" "$NC"
       printf '\e[K' #  clear the line
     printf '\e[u' #  restores the cursor to the last saved position
 }
@@ -535,6 +536,11 @@ _zsh_disk_guard_cp() {
 }
 
 _zsh_disk_guard_mv() {
+    # Save and disable xtrace to prevent variable assignment output
+    local xtrace_was_set=0
+    [[ $- == *x* ]] && xtrace_was_set=1
+    set +x
+
     local LC_ALL=C
     (( ZSH_DISK_GUARD_ENABLED )) || { command mv "$@"; return $?; }
 
@@ -549,19 +555,17 @@ _zsh_disk_guard_mv() {
 
     _zsh_disk_guard_init_term
 
+    # Disable job control messages temporarily
+    setopt LOCAL_OPTIONS NO_NOTIFY NO_MONITOR
+
     for source in "${sources[@]}"; do
         (( file_idx++ ))
 
-        # Show current file being processed
+        # Show current file being processed (only once)
         printf '→ %s\n' "${source:t}"
 
-        # Get source file size for progress calculation
-        local source_size
-        if [[ -f "$source" ]]; then
-            source_size=$(command stat -c%s "$source" 2>/dev/null || command stat -f%z "$source" 2>/dev/null || echo 0)
-        else
-            source_size=0
-        fi
+        # Get source file size (suppress trace output)
+        local source_size=$(set +x; [[ -f "$source" ]] && (command stat -c%s "$source" 2>/dev/null || command stat -f%z "$source" 2>/dev/null || echo 0) || echo 0)
 
         local target_file="$target/${source:t}"
 
@@ -569,45 +573,59 @@ _zsh_disk_guard_mv() {
         command mv "$source" "$target" &
         local mv_pid=$!
 
-        # Monitor move progress
+        # Monitor copy progress by checking destination file size
         if (( source_size > 0 )); then
             while kill -0 $mv_pid 2>/dev/null; do
                 if [[ -f "$target_file" ]]; then
-                    local cur_size
-                    cur_size=$(command stat -c%s "$target_file" 2>/dev/null || command stat -f%z "$target_file" 2>/dev/null || echo 0)
+                    # Get size without any trace output
+                    local cur_size=$(set +x; command stat -c%s "$target_file" 2>/dev/null || command stat -f%z "$target_file" 2>/dev/null || echo 0)
 
+                    # Calculate progress: (completed_files * 100 + current_file_percent) / total_files
                     local cur_file_pct=$((cur_size * 100 / source_size))
                     (( cur_file_pct > 100 )) && cur_file_pct=100
 
                     local tot_pct=$(( (file_idx - 1) * 100 + cur_file_pct ))
                     local overall_pct=$(( tot_pct / total_files ))
 
+                    # Show progress as if we're processing "overall_pct" out of 100
                     _zsh_disk_guard_progress_bar $overall_pct 100
                 else
+                    # File doesn't exist yet
                     _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files
                 fi
                 sleep 0.1
             done
         else
+            # Unknown size, just show file count progress
             while kill -0 $mv_pid 2>/dev/null; do
                 _zsh_disk_guard_progress_bar $file_idx $total_files
                 sleep 0.2
             done
         fi
 
+        # Wait for mv to complete and get exit status
         wait $mv_pid
         local mv_status=$?
 
+        # Final update for this file
         _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100
 
+        # Check if mv failed
         if (( mv_status != 0 )); then
             _zsh_disk_guard_deinit_term
+            # Restore xtrace if it was set
+            (( xtrace_was_set )) && set -x
             return $mv_status
         fi
     done
 
+    # Ensure 100% at the end
     _zsh_disk_guard_progress_bar 100 100
+
     _zsh_disk_guard_deinit_term
+
+    # Restore xtrace if it was set
+    (( xtrace_was_set )) && set -x
 
     return 0
 }
