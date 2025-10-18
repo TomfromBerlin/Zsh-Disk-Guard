@@ -68,52 +68,29 @@ TRAPWINCH
 : ${ZSH_DISK_GUARD_COMMANDS:="cp mv rsync"}
 
 # ──────────────────────────────────────────────────────────────────
-#  Helper function
+#  Helper Functions
 # ──────────────────────────────────────────────────────────────────
+
+# Debug output function
 _zsh_disk_guard_debug() {
     local LC_ALL=C
     (( ZSH_DISK_GUARD_DEBUG )) && print -P "%F{cyan}DEBUG:%f $*" >&2
 }
 
-# ──────────────────────────────────────────────────────────────────
-# We want numbers and we don't want commas 'cause they break the game
+# Check if a string is a valid number
 _zsh_disk_guard_is_number() {
     local LC_ALL=C
     [[ "$1" =~ ^[0-9]+([.][0-9]+)?$ ]]
 }
-# ============================================================
-#  Dynamic batch size
-# ============================================================
-_zsh_disk_guard_set_batchsize() {
-    local LC_ALL=C
-    local total_bytes
-    total_bytes=$(command du -cb "$@" 2>/dev/null | tail -n1 | awk '{print $1}')
 
-    if (( total_bytes < 100*1024*1024 )); then
-      ZSH_DISK_GUARD_BATCHSIZE=50
-    elif (( total_bytes < 1*1024*1024*1024 )); then
-      ZSH_DISK_GUARD_BATCHSIZE=100
-    else
-      ZSH_DISK_GUARD_BATCHSIZE=200
-    fi
-
-    _zsh_disk_guard_debug "Batch size dynamically set to $ZSH_DISK_GUARD_BATCHSIZE (based on $(($total_bytes / 1024 / 1024)) MiB)"
-}
-# ──────────────────────────────────────────────────────────────
-# df wrapper - portable across GNU/Linux and BSD/macOS
-# Arguments:
-#   $1 = metric: "pcent", "avail", "size"
-#   $2 = mountpoint or path
-# Returns:
-#   Numeric value (percentage or bytes)
-# ──────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────
 # Portable df wrapper for usage, available, size, or mountpoint
 # Arguments:
 #   $1 = metric: "pcent", "avail", "size", "mountpoint"
 #   $2 = path
 # Returns:
 #   Numeric value (bytes or percentage) or mountpoint path
-# ──────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────
 zsh_disk_guard_df() {
     local LC_ALL=C
     local metric=$1
@@ -162,7 +139,6 @@ zsh_disk_guard_df() {
                 result=$(echo "$line" | awk '{print $2 * 1024}')
                 ;;
             mountpoint)
-                # 6th column on BSD df: mountpoint
                 result=$(echo "$line" | awk '{print $6}')
                 ;;
             *)
@@ -175,9 +151,11 @@ zsh_disk_guard_df() {
     echo $result
     return 0
 }
+
 # ──────────────────────────────────────────────────────────────────
-#
-# --- Quick size ---
+# Quick size calculation (files only, no directories)
+# Returns 1 if directories are found (needs deep check)
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_quick_size() {
     local LC_ALL=C
     local total=0
@@ -200,7 +178,9 @@ _zsh_disk_guard_quick_size() {
     return 0
 }
 
-# --- Deep size ---
+# ──────────────────────────────────────────────────────────────────
+# Deep size calculation (includes directories)
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_deep_size() {
     local LC_ALL=C
     local total=0
@@ -224,7 +204,9 @@ _zsh_disk_guard_deep_size() {
     echo $total
 }
 
-# --- Format size ---
+# ──────────────────────────────────────────────────────────────────
+# Format size in human-readable format (Bytes, KiB, MiB, GiB)
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_format_size() {
     local LC_ALL=C
     local bytes=$1
@@ -257,7 +239,14 @@ _zsh_disk_guard_format_size() {
     echo "${bytes} Bytes"
 }
 
-# --- Verify ---
+# ──────────────────────────────────────────────────────────────────
+# Verify disk space availability before write operations
+# Arguments:
+#   $1 = target path
+#   $@ = source files/directories
+# Returns:
+#   0 if sufficient space, 1 otherwise
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_verify() {
     local LC_ALL=C
     local target="$1"
@@ -365,6 +354,7 @@ _zsh_disk_guard_verify() {
             return 1
         fi
     fi
+
     # Successfully completed
     echo "✅ Disk guard check passed for $mountpoint." >&2
     echo "📦 Total data size: $(_zsh_disk_guard_format_size $total_size)" >&2
@@ -372,91 +362,153 @@ _zsh_disk_guard_verify() {
     return 0
 }
 
+# ──────────────────────────────────────────────────────────────────
+# Pac-Man style progress bar
+# Arguments:
+#   $1 = current progress (0-100)
+#   $2 = total (usually 100)
+#   $3 = total number of files (for display)
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_progress_bar() {
   local LC_ALL=C
   local current=$1
-  local len=$2
-  local COLUMNS
-  COLUMNS=$(tput cols)
-  local LINES
-  LINES=$(tput lines)
+  local total=$2
+  local file_count=${3:-0}
 
+  local COLUMNS=$(tput cols)
+  local LINES=$(tput lines)
+
+  # Color definitions
   local GREEN=$'\e[0;32;40m'
   local BROWN=$'\e[0;33;40m'
   local YELLOW=$'\e[1;33;40m'
   local RED=$'\e[0;31;40m'
-  local NC=$'\e[0m'                # reset color
+  local NC=$'\e[0m'
 
-  local pm_char1="${YELLOW}C${NC}"    # this is one of two characters for the animation
-  local pm_char2="${YELLOW}c${NC}"    # this is the second character for the animation
-  local bar_char1="${BROWN}.${NC}"    # this character apears behind Pac-Man
-  local bar_char2="${GREEN}o${NC}"    # this character is eaten by Pac-Man
-#  local bar_char2="${GREEN}$·${NC}"    # you can also try middle-dot
-#  local bar_char2="${GREEN}$( printf $'\u00B7' )${NC}"    # with UTF-8 code -> ·
+  # Pac-Man characters
+  local pm_char1="${YELLOW}C${NC}"    # Pac-Man mouth open
+  local pm_char2="${YELLOW}c${NC}"    # Pac-Man mouth closed
+  local bar_char1="${BROWN}.${NC}"    # Trail behind Pac-Man
+  local bar_char2="${GREEN}o${NC}"    # Dots to eat
 
-  local perc_done=$((current * 100 / len))
+  local perc_done=$((current * 100 / total))
 
+  # Build suffix: "Files: X (Y%)" instead of redundant "X/Y (Y%)"
   local suffix
-        suffix=$(printf ' %d / %d (%d%%)' "$current" "$len" "$perc_done")
+  if (( file_count > 0 )); then
+    suffix=$(printf ' Files: %d (%d%%)' "$file_count" "$perc_done")
+  else
+    suffix=$(printf ' %d%% ' "$perc_done")
+  fi
+
   local length=$(( COLUMNS - 2 - ${#suffix} ))
-    (( length < 0 )) && length=0
+  (( length < 0 )) && length=0
 
   local num_bars=$((perc_done * length / 100))
-
   local pos=$((num_bars - 1))
-    (( pos < 0 )) && pos=0
+  (( pos < 0 )) && pos=0
 
+  # Color based on percentage (red < 31%, yellow < 61%, green >= 61%)
   local perc_color
-    if (( perc_done < 31 )); then
-          perc_color=${RED}
-    elif (( perc_done < 61 )); then
-          perc_color=${YELLOW}
+  if (( perc_done < 31 )); then
+      perc_color=${RED}
+  elif (( perc_done < 61 )); then
+      perc_color=${YELLOW}
+  else
+      perc_color=${GREEN}
+  fi
+
+  # Build progress bar
+  local bar='['
+  local i
+  for ((i = 0; i < length; i++)); do
+    if (( i < pos )); then
+        bar+=$bar_char1  # Trail behind Pac-Man
+    elif (( i == pos && perc_done < 100 )); then
+        # Pac-Man animation (alternates between open/closed mouth)
+        (( i % 2 == 0 )) && bar+=$pm_char1 || bar+=$pm_char2
     else
-          perc_color=${GREEN}
+        bar+=$bar_char2  # Dots in front of Pac-Man
     fi
-# progress bar
-    bar='['
-    local i
-    for ((i = 0; i < length; i++)); do
-      if (( i < pos )); then
-          bar+=$bar_char1 # behind Pac-Man
-      elif (( i == pos && perc_done < 100 )); then
-      # Pac-Man
-          (( i % 2 == 0 )) && bar+=$pm_char1 || bar+=$pm_char2
-      else
-          bar+=$bar_char2 # in front of Pac-Man
-      fi
-    done
-    bar+=']'
-    printf '\e[s' # save the cursor position
-      printf '\e[%d;1H' "$LINES"  #  -> bottom row, first column  (1-based!)
-#        printf '%s %s/%s %s%s%%%s' "$bar" "$current" "$len" "$perc_color" "$perc_done" "$NC"
-        printf '%s %s%s%%%s' "$bar" "$perc_color" "$perc_done" "$NC"
-      printf '\e[K' #  clear the line
-    printf '\e[u' #  restores the cursor to the last saved position
+  done
+  bar+=']'
+
+  # Display progress bar at bottom of terminal
+  printf '\e[s'                    # Save cursor position
+  printf '\e[%d;1H' "$LINES"       # Move to bottom row, first column
+  printf '%s%s%s%s' "$bar" "$perc_color" "$suffix" "$NC"
+  printf '\e[K'                    # Clear rest of line
+  printf '\e[u'                    # Restore cursor position
+}
+
+# ──────────────────────────────────────────────────────────────────
+# Initialize terminal for progress bar display
+# - Creates space for progress bar at bottom
+# - Makes cursor invisible
+# ──────────────────────────────────────────────────────────────────
+_zsh_disk_guard_init_term() {
+    local COLUMNS=$(tput cols)
+    local LINES=$(tput lines)
+
+    printf '\n'                                # Ensure space for progress bar
+    printf '\e[s'                              # Save cursor location
+    printf '\e[%d;%dr' 1 "$((LINES -1))"       # Set scrollable region (leave bottom line)
+    printf '\e[u'                              # Restore cursor location
+    printf '\e[1A'                             # Move cursor up one line
+    tput civis                                 # Make cursor invisible
+}
+
+# ──────────────────────────────────────────────────────────────────
+# Restore terminal to normal state
+# - Resets scrollable region
+# - Makes cursor visible again
+# ──────────────────────────────────────────────────────────────────
+_zsh_disk_guard_deinit_term() {
+  local COLUMNS=$(tput cols)
+  local LINES=$(tput lines)
+
+  printf '\e[s'                          # Save cursor location
+  printf '\e[%d;%dr' 1 "$LINES"          # Reset scrollable region
+  printf '\e[%d;%dH' "$LINES" 1          # Move to bottom line
+  printf '\e[0K'                         # Clear the line
+  printf '\e[u'                          # Restore cursor location
+  tput cnorm                             # Make cursor visible
 }
 
 # ──────────────────────────────────────────────────────────────────
 #  Command Wrappers
 # ──────────────────────────────────────────────────────────────────
 
+# ──────────────────────────────────────────────────────────────────
+# Wrapper for 'cp' command with disk guard and progress bar
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_cp() {
     # Save and disable xtrace to prevent variable assignment output
     local xtrace_was_set=0
     [[ $- == *x* ]] && xtrace_was_set=1
     set +x
 
+    # Save REPORTTIME and disable it temporarily (set to very high value)
+    local saved_reporttime=${REPORTTIME:-}
+    local reporttime_was_set=$+REPORTTIME
+    REPORTTIME=999999
+
     local LC_ALL=C
+
+    # If plugin is disabled, just run normal cp
     (( ZSH_DISK_GUARD_ENABLED )) || { command cp "$@"; return $?; }
 
     local args=("$@")
     local target="${args[-1]}"
     local sources=("${args[@]:0:-1}")
 
+    # Verify disk space before starting
     _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
 
     local total_files=${#sources[@]}
     local file_idx=0
+    local total_bytes_copied=0
+    local start_time=$SECONDS
 
     _zsh_disk_guard_init_term
 
@@ -466,23 +518,34 @@ _zsh_disk_guard_cp() {
     for source in "${sources[@]}"; do
         (( file_idx++ ))
 
-        # Show current file being processed (only once)
-        printf '→ %s\n' "${source:t}"
-
         # Get source file size (suppress trace output)
         local source_size=$(set +x; [[ -f "$source" ]] && (command stat -c%s "$source" 2>/dev/null || command stat -f%z "$source" 2>/dev/null || echo 0) || echo 0)
 
+        # Display current file with size
+        local size_display=$(_zsh_disk_guard_format_size $source_size)
+        printf '→ %s (%s)\n' "${source:t}" "$size_display"
+
         local target_file="$target/${source:t}"
 
-        # Start cp in background
-        command cp "$source" "$target" &
+        # Check if target file exists and prompt for overwrite (interactive mode only)
+        if [[ -f "$target_file" ]] && [[ -o interactive ]]; then
+            read -q "reply?File exists. Overwrite ${target_file:t}? [y/N] " </dev/tty
+            echo
+            if [[ "$reply" != [Yy] ]]; then
+                printf "Skipped: %s\n" "${source:t}"
+                continue
+            fi
+        fi
+
+        # Start cp in background (with -f to force overwrite after user confirmation)
+        command cp -f "$source" "$target" &
         local cp_pid=$!
 
         # Monitor copy progress by checking destination file size
         if (( source_size > 0 )); then
             while kill -0 $cp_pid 2>/dev/null; do
                 if [[ -f "$target_file" ]]; then
-                    # Get size without any trace output
+                    # Get current size of destination file
                     local cur_size=$(set +x; command stat -c%s "$target_file" 2>/dev/null || command stat -f%z "$target_file" 2>/dev/null || echo 0)
 
                     # Calculate progress: (completed_files * 100 + current_file_percent) / total_files
@@ -492,18 +555,18 @@ _zsh_disk_guard_cp() {
                     local tot_pct=$(( (file_idx - 1) * 100 + cur_file_pct ))
                     local overall_pct=$(( tot_pct / total_files ))
 
-                    # Show progress as if we're processing "overall_pct" out of 100
-                    _zsh_disk_guard_progress_bar $overall_pct 100
+                    # Show progress with file count
+                    _zsh_disk_guard_progress_bar $overall_pct 100 $total_files
                 else
-                    # File doesn't exist yet
-                    _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files
+                    # File doesn't exist yet, show progress for completed files
+                    _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files $total_files
                 fi
                 sleep 0.1
             done
         else
-            # Unknown size, just show file count progress
+            # Unknown size or directory, just show file count progress
             while kill -0 $cp_pid 2>/dev/null; do
-                _zsh_disk_guard_progress_bar $file_idx $total_files
+                _zsh_disk_guard_progress_bar $file_idx $total_files $total_files
                 sleep 0.2
             done
         fi
@@ -512,22 +575,61 @@ _zsh_disk_guard_cp() {
         wait $cp_pid
         local cp_status=$?
 
-        # Final update for this file
-        _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100
-
         # Check if cp failed
         if (( cp_status != 0 )); then
+            printf '\n❌ Error copying %s (exit code: %d)\n' "${source:t}" "$cp_status" >&2
             _zsh_disk_guard_deinit_term
-            # Restore xtrace if it was set
+            # Restore settings
+            if (( reporttime_was_set )); then
+                REPORTTIME=$saved_reporttime
+            else
+                unset REPORTTIME
+            fi
             (( xtrace_was_set )) && set -x
             return $cp_status
         fi
+
+        # Add to total bytes copied
+        (( total_bytes_copied += source_size ))
+
+        # Update progress bar for completed file
+        _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100 $total_files
     done
 
     # Ensure 100% at the end
-    _zsh_disk_guard_progress_bar 100 100
+    _zsh_disk_guard_progress_bar 100 100 $total_files
 
     _zsh_disk_guard_deinit_term
+
+    # Calculate elapsed time and format it cleanly
+    local elapsed=$((SECONDS - start_time))
+    local elapsed_display
+
+    # Convert to integer to avoid floating point issues
+    local elapsed_int=${elapsed%.*}
+
+    if (( elapsed_int < 60 )); then
+        elapsed_display=$(printf '%ds' "$elapsed_int")
+    elif (( elapsed_int < 3600 )); then
+        local minutes=$((elapsed_int / 60))
+        local seconds=$((elapsed_int % 60))
+        elapsed_display=$(printf '%dm %ds' "$minutes" "$seconds")
+    else
+        local hours=$((elapsed_int / 3600))
+        local minutes=$(((elapsed_int % 3600) / 60))
+        local seconds=$((elapsed_int % 60))
+        elapsed_display=$(printf '%dh %dm %ds' "$hours" "$minutes" "$seconds")
+    fi
+
+    # Display success summary
+    printf '\n✅ Done! Copied %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_copied)" "$elapsed_display"
+
+    # Restore REPORTTIME to original state
+    if (( reporttime_was_set )); then
+        REPORTTIME=$saved_reporttime
+    else
+        unset REPORTTIME
+    fi
 
     # Restore xtrace if it was set
     (( xtrace_was_set )) && set -x
@@ -535,94 +637,144 @@ _zsh_disk_guard_cp() {
     return 0
 }
 
+# ──────────────────────────────────────────────────────────────────
+# Wrapper for 'mv' command with disk guard and progress bar
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_mv() {
-    # Save and disable xtrace to prevent variable assignment output
+    # Save and disable xtrace
     local xtrace_was_set=0
     [[ $- == *x* ]] && xtrace_was_set=1
     set +x
 
+    # Save REPORTTIME and disable it temporarily
+    local saved_reporttime=${REPORTTIME:-}
+    local reporttime_was_set=$+REPORTTIME
+    REPORTTIME=999999
+
     local LC_ALL=C
+
+    # If plugin is disabled, just run normal mv
     (( ZSH_DISK_GUARD_ENABLED )) || { command mv "$@"; return $?; }
 
     local args=("$@")
     local target="${args[-1]}"
     local sources=("${args[@]:0:-1}")
 
+    # Verify disk space before starting
     _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
 
     local total_files=${#sources[@]}
     local file_idx=0
+    local total_bytes_moved=0
+    local start_time=$SECONDS
 
     _zsh_disk_guard_init_term
 
-    # Disable job control messages temporarily
+    # Disable job control messages
     setopt LOCAL_OPTIONS NO_NOTIFY NO_MONITOR
 
     for source in "${sources[@]}"; do
         (( file_idx++ ))
 
-        # Show current file being processed (only once)
-        printf '→ %s\n' "${source:t}"
-
-        # Get source file size (suppress trace output)
+        # Get source file size for progress calculation
         local source_size=$(set +x; [[ -f "$source" ]] && (command stat -c%s "$source" 2>/dev/null || command stat -f%z "$source" 2>/dev/null || echo 0) || echo 0)
+
+        # Display current file with size
+        local size_display=$(_zsh_disk_guard_format_size $source_size)
+        printf '→ %s (%s)\n' "${source:t}" "$size_display"
 
         local target_file="$target/${source:t}"
 
-        # Start mv in background
-        command mv "$source" "$target" &
+        # Check if target file exists and prompt for overwrite (interactive mode only)
+        if [[ -f "$target_file" ]] && [[ -o interactive ]]; then
+            read -q "reply?File exists. Overwrite ${target_file:t}? [y/N] " </dev/tty
+            echo
+            if [[ "$reply" != [Yy] ]]; then
+                printf "Skipped: %s\n" "${source:t}"
+                continue
+            fi
+        fi
+
+        # Start mv in background (with -f to force overwrite after user confirmation)
+        command mv -f "$source" "$target" &
         local mv_pid=$!
 
-        # Monitor copy progress by checking destination file size
+        # Monitor move progress
         if (( source_size > 0 )); then
             while kill -0 $mv_pid 2>/dev/null; do
                 if [[ -f "$target_file" ]]; then
-                    # Get size without any trace output
                     local cur_size=$(set +x; command stat -c%s "$target_file" 2>/dev/null || command stat -f%z "$target_file" 2>/dev/null || echo 0)
 
-                    # Calculate progress: (completed_files * 100 + current_file_percent) / total_files
                     local cur_file_pct=$((cur_size * 100 / source_size))
                     (( cur_file_pct > 100 )) && cur_file_pct=100
 
                     local tot_pct=$(( (file_idx - 1) * 100 + cur_file_pct ))
                     local overall_pct=$(( tot_pct / total_files ))
 
-                    # Show progress as if we're processing "overall_pct" out of 100
-                    _zsh_disk_guard_progress_bar $overall_pct 100
+                    _zsh_disk_guard_progress_bar $overall_pct 100 $total_files
                 else
-                    # File doesn't exist yet
-                    _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files
+                    _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files $total_files
                 fi
                 sleep 0.1
             done
         else
-            # Unknown size, just show file count progress
             while kill -0 $mv_pid 2>/dev/null; do
-                _zsh_disk_guard_progress_bar $file_idx $total_files
+                _zsh_disk_guard_progress_bar $file_idx $total_files $total_files
                 sleep 0.2
             done
         fi
 
-        # Wait for mv to complete and get exit status
         wait $mv_pid
         local mv_status=$?
 
-        # Final update for this file
-        _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100
-
         # Check if mv failed
         if (( mv_status != 0 )); then
+            printf '\n❌ Error moving %s (exit code: %d)\n' "${source:t}" "$mv_status" >&2
             _zsh_disk_guard_deinit_term
-            # Restore xtrace if it was set
+            # Restore settings
+            if (( reporttime_was_set )); then
+                REPORTTIME=$saved_reporttime
+            else
+                unset REPORTTIME
+            fi
             (( xtrace_was_set )) && set -x
             return $mv_status
         fi
+
+        # Add to total bytes moved
+        (( total_bytes_moved += source_size ))
+
+        _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100 $total_files
     done
 
-    # Ensure 100% at the end
-    _zsh_disk_guard_progress_bar 100 100
-
+    _zsh_disk_guard_progress_bar 100 100 $total_files
     _zsh_disk_guard_deinit_term
+
+    # Calculate elapsed time and format it cleanly
+    local elapsed=$((SECONDS - start_time))
+    local elapsed_display
+    if (( elapsed < 60 )); then
+        elapsed_display="${elapsed}s"
+    elif (( elapsed < 3600 )); then
+        local minutes=$((elapsed / 60))
+        local seconds=$((elapsed % 60))
+        elapsed_display="${minutes}m ${seconds}s"
+    else
+        local hours=$((elapsed / 3600))
+        local minutes=$(((elapsed % 3600) / 60))
+        local seconds=$((elapsed % 60))
+        elapsed_display="${hours}h ${minutes}m ${seconds}s"
+    fi
+
+    # Display success summary
+    printf '\n✅ Done! Moved %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_moved)" "$elapsed_display"
+
+    # Restore REPORTTIME to original state
+    if (( reporttime_was_set )); then
+        REPORTTIME=$saved_reporttime
+    else
+        unset REPORTTIME
+    fi
 
     # Restore xtrace if it was set
     (( xtrace_was_set )) && set -x
@@ -630,6 +782,10 @@ _zsh_disk_guard_mv() {
     return 0
 }
 
+# ──────────────────────────────────────────────────────────────────
+# Wrapper for 'rsync' command with disk guard
+# Note: rsync has its own progress display, so we don't add our own
+# ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_rsync() {
     local LC_ALL=C
     (( ZSH_DISK_GUARD_ENABLED )) || { command rsync "$@"; return $?; }
@@ -638,63 +794,35 @@ _zsh_disk_guard_rsync() {
     local target="${args[-1]}"
     local sources=("${args[@]:0:-1}")
 
-    # Remote target?
+    # Remote target? Skip check
     if [[ "$target" == *:* ]]; then
         _zsh_disk_guard_debug "Remote target → skip check"
         command rsync "$@"
         return $?
     fi
 
-    # Option-like target?
+    # Option-like target? Skip check
     if [[ "$target" == -* ]]; then
         _zsh_disk_guard_debug "Option detected → skip check"
         command rsync "$@"
         return $?
     fi
 
-    # Unclear target?
+    # Unclear target? Skip check
     if [[ ! -e "$target" && "$target" != */* ]]; then
         _zsh_disk_guard_debug "Unclear target → skip check"
         command rsync "$@"
         return $?
     fi
 
+    # Verify disk space, then run rsync with its own progress
     _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
     command rsync "$@"
     return $?
 }
 
-# initialise terminal
-_zsh_disk_guard_init_term() {
-    local COLUMNS
-    COLUMNS=$(tput cols)
-    local LINES
-    LINES=$(tput lines)
-
-    printf '\n' # ensure we have space for the progress bar
-      printf '\e[s' # save the cursor location
-        printf '\e[%d;%dr' 1 "$((LINES -1))" # set the scrollable region (margin)
-      printf '\e[u' #  restore the cursor location
-    printf '\e[1A' # move cursor up
-    tput civis # make cursor invisible
-}
-
-_zsh_disk_guard_deinit_term() {
-  local COLUMNS
-  COLUMNS=$(tput cols)
-  local LINES
-  LINES=$(tput lines)
-
-    printf '\e[s' # save the cursor location
-      printf '\e[%d;%dr' 1 "$LINES" # reset the scrollable region (margin)
-        printf '\e[%d;%dH' "$LINES" 1 # move cursor to bottom line
-      printf '\e[0K' #  clear the line
-    printf '\e[u' #  reset the cursor location
-    tput cnorm # make cursor visible
-}
-
 # ──────────────────────────────────────────────────────────────────
-#  Plugin Management
+#  Plugin Management Functions
 # ──────────────────────────────────────────────────────────────────
 
 zsh-disk-guard-enable() {
@@ -731,10 +859,9 @@ zsh-disk-guard-status() {
 }
 
 # ──────────────────────────────────────────────────────────────────
-#  Installation
+#  Installation - Create aliases for wrapped commands
 # ──────────────────────────────────────────────────────────────────
 
-# Create aliases only for implemented wrappers
 for cmd in ${(z)ZSH_DISK_GUARD_COMMANDS}; do
     # Check if wrapper function exists
     if (( $+functions[_zsh_disk_guard_${cmd}] )); then
@@ -745,15 +872,8 @@ for cmd in ${(z)ZSH_DISK_GUARD_COMMANDS}; do
     fi
 done
 
-# Cleanup on unload
-if [[ -n "$ZSH_EVAL_CONTEXT" ]]; then
-    # Support for plugin managers
-    :
-fi
-
-# Cleanup on unload (for plugin managers that support it)
 # ──────────────────────────────────────────────────────────────────
-#  Cleanup Function
+#  Cleanup Function - Unload plugin completely
 # ──────────────────────────────────────────────────────────────────
 
 zsh_disk_guard_plugin_unload() {
@@ -769,7 +889,7 @@ zsh_disk_guard_plugin_unload() {
     unfunction zsh_disk_guard_df 2>/dev/null
 
     # Unset variables
-    unset ZSH_DISK_GUARD_{THRESHOLD,DEEP_THRESHOLD,DEBUG,ENABLED,COMMANDS,BATCHSIZE}
+    unset ZSH_DISK_GUARD_{THRESHOLD,DEEP_THRESHOLD,DEBUG,ENABLED,COMMANDS}
     unset _zsh_disk_guard_loaded ZSH_DISK_GUARD_PLUGIN_DIR
 
     print -P "%F{green}✓%f Disk guard plugin unloaded successfully"
