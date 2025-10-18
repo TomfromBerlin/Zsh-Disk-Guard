@@ -17,6 +17,16 @@ _Memo to self: They'll clone this repository again and again and not leave a sin
 
 🛡️ Intelligent disk space monitoring for write operations in Zsh
 
+<details><summary> 🚀 Quick Start</summary>
+
+```zsh
+ # Install
+ git clone https://github.com/TomfromBerlin/zsh-disk-guard ~/.config/zsh/plugins/zsh-disk-guard
+ echo "source ~/.config/zsh/plugins/zsh-disk-guard/zsh-disk-guard.plugin.zsh" >> ~/.zshrc
+ source ~/.zshrc
+```
+</details>
+
 ## ✨ Features
 
 - ⚡ **Smart Performance**: Staged checking based on data size
