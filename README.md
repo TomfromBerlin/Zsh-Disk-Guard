@@ -24,13 +24,13 @@ _Memo to self: They'll clone this repository again and again and not leave a sin
 - 🔧 **Configurable**: Adjust thresholds and behavior
 - 🫥 **Very Low Overhead**: Minimal checks for small files
 - 📦 **Plugin Manager Ready**: Works with oh-my-zsh, zinit, antigen, etc.
-- 👣 **Progress bar**: Percentage and pseudo graphic display of progress
+- 👣 **Progress bar**: Percentage and visual progress
 - 💾 **Display of useful information**: total size of data to be processed, required and available storage space on the destination disk, file name and size of the file just processed
 - ⏱️ **Display of the total time** required for the file operation(s)
 
 [Zsh Disk Guard feat. a progress bar.webm](https://github.com/user-attachments/assets/2ae905e8-cadd-49eb-b5e1-1d3a0a6e21e9)
 
-| 👁️‍🗨️ Annotation |
+| 👁️‍🗨️ Note |
 |:-|
 | The plugin uses its own aliases for the **`cp`** and **`mv`** commands, so if you use this plugin and **`cp`** _and/or_ **`mv`** in other scripts, you should consider prefixing the commands in those scripts with `command`, e.g., `command cp <source> <dest>`. Existing aliases are ignored because the plugin calls these programs with the `command` prefix. That said, if you rely on your existing aliases, you should not consider using this plugin.
 The functionality of the **`rsync`** program is barely affected. The plugin only checks whether the target is local or remote and whether **`rsync`** was called with options. If the target is remote or unclear, or if options are detected, all checks are skipped. If **`rsync`** is called without options and the destination is local but there is not enough disk space, a warning will be issued and a request will be made as to whether the file operation should be performed anyway. Apart from that, **`rsync`** is always called only with the user-specific options (if any), since it has its own output (e.g. its own progress bar). |
