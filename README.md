@@ -210,25 +210,33 @@ This plugin should be ready to use right out of the box and requires no further 
 <details><summary> ← click here for more</summary>
 
 ```zsh
+# Set these settings before loading the plugin.
+# To do this, either find the relevant settings in the script's configuration section
+# and change only the values ​​(do not export them within the script), or enter one or
+# more of the following commands in the command line (and then export them):
 
-Set these before loading the plugin:
-
-# set disk usage warning threshold to 90% (default: 80%)
+# set disk usage warning threshold to 90% (default value: 80%)
 export ZSH_DISK_GUARD_THRESHOLD=90
 
-# set deep check threshold to 500 MiB (default: 100 MiB)
+# set deep check threshold to 500 MiB (default value: 100 MiB)
 export ZSH_DISK_GUARD_DEEP_THRESHOLD=$((500 * 1024 * 1024))
 
-# Enable debug output (default: 0)
+# Enable debug output (default value: 0)
 export ZSH_DISK_GUARD_DEBUG=1
 
-# disable plugin (default: 1)
+# disable plugin (default value: 1)
 export ZSH_DISK_GUARD_ENABLED=0
 
-# commands to wrap (default: "cp mv rsync")
-# If you want to change the default (mot recommended), further adjustments are necessary
+# ──────────────────────────────────────────────────────────────────
+# Only play around with the following settings if you really know what you're doing! I'm serious!
+
+# commands to be wrapped, separated by spaces (default: "cp mv rsync")
 export ZSH_DISK_GUARD_COMMANDS="cp mv rsync"
 
+# However, if you want to change the default (not recommended!),
+# further customization is required, i.e. you need to create suitable wrappers.
+# See the _zsh_disk_guard_cp() function to see how this can be done.
+# ──────────────────────────────────────────────────────────────────
 ```
 </details>
 
