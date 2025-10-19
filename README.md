@@ -38,6 +38,32 @@ _Memo to self: They'll clone this repository again and again and not leave a sin
 - 💾 **Display of useful information**: total size of data to be processed, required and available storage space on the destination disk, file name and size of the file just processed
 - ⏱️ **Display of the total time** required for the file operation(s)
 
+## 🖥️ Usage
+
+Since this is a plugin, manual execution is neither necessary nor useful. The plugin reacts to certain triggers and executes the corresponding actions automatically. Simply use `cp`, `mv`, and `rsync` as usual, e.g., `cp <source> <dest>`. No additional options should be specified. The plugin in action can be seen in the following clip. The plugin's status can be checked via the command line. See the "[Control](control)" section for more information.
+
+<details><summary> ← Click here to see two output examples with low disk space warning</summary>
+
+```zsh
+
+# Automatically checked
+cp large-file.iso /backup/
+# ⚠️  Warning: Partition /backup is 85% full!
+# Continue anyway? [y/N]
+
+# Prevents write if not enough space
+mv bigdata/ /mnt/small-disk/
+# ❌ ERROR: Not enough disk space on /mnt/small-disk!
+#    Required: 5 GiB
+#    Available: 3 GiB
+#    Missing: 2048 MiB
+
+# Smart: skips remote targets
+rsync -av files/ user@remote:/backup/  # No local check
+
+```
+</details>
+
 [Zsh Disk Guard feat. a progress bar.webm](https://github.com/user-attachments/assets/2ae905e8-cadd-49eb-b5e1-1d3a0a6e21e9)
 
 | 👁️‍🗨️ Note |
@@ -262,33 +288,7 @@ export ZSH_DISK_GUARD_COMMANDS="cp mv rsync"
 ```
 </details>
 
-## 🖥️ Usage
-
-Since this is a plugin, manual execution is neither necessary nor useful. The plugin reacts to certain triggers and executes the corresponding actions automatically. The active status of the plugin is usually only noticed when the available disk space falls below the given threshold. The plugin's status can be checked via the command line. For more information, see the "Control" section.
-
-<details><summary> ← Click here to view an output sample</summary>
-
-```zsh
-
-# Automatically checked
-cp large-file.iso /backup/
-# ⚠️  Warning: Partition /backup is 85% full!
-# Continue anyway? [y/N]
-
-# Prevents write if not enough space
-mv bigdata/ /mnt/small-disk/
-# ❌ ERROR: Not enough disk space on /mnt/small-disk!
-#    Required: 5 GiB
-#    Available: 3 GiB
-#    Missing: 2048 MiB
-
-# Smart: skips remote targets
-rsync -av files/ user@remote:/backup/  # No local check
-
-```
-</details>
-
-## 🎛️ Control
+# 🎛️ Control
 
 ```zsh
 zsh-disk-guard-status    # Shows current configuration
@@ -301,7 +301,6 @@ zsh-disk-guard-disable   # Temporarily disable
 ```zsh
 zsh-disk-guard-enable    # Re-enable
 ```
-
 
 # 💬 Contribute
 Issues and PRs welcome at github.com/TomfromBerlin/zsh-disk-guard
