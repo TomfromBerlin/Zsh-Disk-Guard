@@ -68,7 +68,7 @@ rsync -av files/ user@remote:/backup/  # No local check
 
 | 👁️‍🗨️ Note |
 |:-|
-| The plugin uses its own aliases for the **`cp`** and **`mv`** commands, so if you use this plugin and **`cp`** _and/or_ **`mv`** in other scripts, you should consider prefixing the commands in those scripts with `command`, e.g., `command cp <source> <dest>`. Existing aliases are ignored because the plugin calls these programs with the `command` prefix. That said, if you rely on your existing aliases, you should not consider using this plugin.
+| The plugin uses its own options for the **`cp`** and **`mv`** commands, so if you use this plugin _and_ **`cp`** and/or **`mv`** in other scripts, you should consider prefixing the commands in those scripts with `command`, e.g., `command cp <source> <dest>`. Existing aliases are ignored because the plugin calls these tools with the `command` prefix. That said, if you rely on your existing aliases, you should not consider using this plugin.
 The functionality of the **`rsync`** program is barely affected. The plugin only checks whether the target is local or remote and whether **`rsync`** was called with options. If the target is remote or unclear, or if options are detected, all checks are skipped. If **`rsync`** is called without options and the destination is local but there is not enough disk space, a warning will be issued and a request will be made as to whether the file operation should be performed anyway. Apart from that, **`rsync`** is always called only with the user-specific options (if any), since it has its own output (e.g. its own progress bar). |
 
 ## ❔ Why This Plugin?
@@ -276,7 +276,8 @@ export ZSH_DISK_GUARD_DEBUG=1
 export ZSH_DISK_GUARD_ENABLED=0
 
 # ──────────────────────────────────────────────────────────────────
-# Only play around with the following settings if you really know what you're doing! I'm serious!
+# Only play around with the following settings if you really know what you're doing!
+# I'm serious!
 
 # commands to be wrapped, separated by spaces (default: "cp mv rsync")
 export ZSH_DISK_GUARD_COMMANDS="cp mv rsync"
