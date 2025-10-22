@@ -9,6 +9,10 @@
 #  Author: Tom from Berlin
 #  License: MIT
 #  Repository: https://github.com/TomfromBerlin/zsh-disk-guard
+# ──────────────────────────────────────────────────────────────────
+# "You can lead a horse to water, but you can't make it read warnings."
+#                                               — Ancient IT Wisdom
+# ──────────────────────────────────────────────────────────────────
 # ===================================================================
 # ──────────────────────────────────────────────────────────────────
 #  Version Check
@@ -253,6 +257,13 @@ _zsh_disk_guard_verify() {
     shift
     local sources=("$@")
 
+    # Color definitions
+    local GREEN=$'\e[0;32;40m'
+    local CYAN=$'\e[0;36;4m' # underlined
+    local YELLOW=$'\e[1;33;40m'
+    local RED=$'\e[0;31;40m'
+    local NC=$'\e[0m'
+
     _zsh_disk_guard_debug "Checking target: $target"
     [[ -z "$target" ]] && return 0
 
@@ -295,7 +306,7 @@ _zsh_disk_guard_verify() {
         _zsh_disk_guard_debug "Quick check: $(_zsh_disk_guard_format_size $estimated_size)"
         if (( estimated_size < ZSH_DISK_GUARD_DEEP_THRESHOLD )); then
             if (( usage >= ZSH_DISK_GUARD_THRESHOLD )); then
-                echo "⚠️  Warning: Partition $mountpoint is ${usage}% full!" >&2
+                printf '\n%s\n' "⚠️  ${RED}Warning${NC}: Partition ${CYAN}$mountpoint${NC} is ${YELLOW}${usage}%${NC} full!" >&2
                 if [[ -o interactive || -t 0 ]]; then
                     read -q "REPLY?Continue anyway? [y/N] "
                     echo
@@ -436,7 +447,7 @@ _zsh_disk_guard_progress_bar() {
   # Display progress bar at bottom of terminal
   printf '\e[s'                    # Save cursor position
   printf '\e[%d;1H' "$LINES"       # Move to bottom row, first column
-  printf '%s%s%s%s' "$bar" "$perc_color" "$suffix" "$NC"
+  printf '%s Files: %d (%s%d%%%s)' "$bar" "$file_count" "$perc_color" "$perc_done" "$NC"
   printf '\e[K'                    # Clear rest of line
   printf '\e[u'                    # Restore cursor position
 }
@@ -496,13 +507,72 @@ _zsh_disk_guard_cp() {
     local LC_ALL=C
 
     # If plugin is disabled, just run normal cp
-    (( ZSH_DISK_GUARD_ENABLED )) || { command cp "$@"; return $?; }
+    (( ZSH_DISK_GUARD_ENABLED )) || { cp "$@"; return $?; }
 
     local args=("$@")
     local target="${args[-1]}"
     local sources=("${args[@]:0:-1}")
 
-    # Verify disk space before starting
+    # Color definitions
+    local GREEN=$'\e[0;32;40m'
+    local CYAN=$'\e[0;36;1m'
+    local YELLOW=$'\e[1;33;40m'
+    local RED=$'\e[0;31;40m'
+    local NC=$'\e[0m'
+
+    # ──────────────────────────────────────────────────────────────
+    # Check for missing source files BEFORE any other operation
+    # ──────────────────────────────────────────────────────────────
+    local missing_files=()
+    local existing_sources=()
+    
+    for source in "${sources[@]}"; do
+        if [[ ! -e "$source" ]]; then
+            missing_files+=("${source:t}")
+        else
+            existing_sources+=("$source")
+        fi
+    done
+
+    # If files are missing, warn user and ask whether to continue
+    if (( ${#missing_files[@]} > 0 )); then
+        printf '\n%s\n' "⚠️  ${RED}Warning${NC}: ${YELLOW}${#missing_files[@]}${NC} source file(s) ${RED}not found${NC}:" >&2
+        for file in "${missing_files[@]}"; do
+            printf '   %s %s\n' "❌" "${CYAN}${file}${NC}" >&2
+        done
+        printf '\n'
+        
+        if (( ${#existing_sources[@]} > 0 )); then
+            read -q "reply?Continue with remaining ${YELLOW}${#existing_sources[@]}${NC} file(s)? [y/N] " </dev/tty
+            echo
+            if [[ "$reply" != [Yy] ]]; then
+                printf '%s\n' "Operation cancelled."
+                # Restore settings before returning
+                if (( reporttime_was_set )); then
+                    REPORTTIME=$saved_reporttime
+                else
+                    unset REPORTTIME
+                fi
+                (( xtrace_was_set )) && set -x
+                return 1
+            fi
+        else
+            printf '%s\n' "❌ ${RED}Error${NC}: No valid source files found. Operation cancelled." >&2
+            # Restore settings before returning
+            if (( reporttime_was_set )); then
+                REPORTTIME=$saved_reporttime
+            else
+                unset REPORTTIME
+            fi
+            (( xtrace_was_set )) && set -x
+            return 1
+        fi
+        
+        # Update sources to only include existing files
+        sources=("${existing_sources[@]}")
+    fi
+
+    # Verify disk space before starting (only for existing files)
     _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
 
     local total_files=${#sources[@]}
@@ -523,16 +593,17 @@ _zsh_disk_guard_cp() {
 
         # Display current file with size
         local size_display=$(_zsh_disk_guard_format_size $source_size)
-        printf '→ %s (%s)\n' "${source:t}" "$size_display"
+        printf '\n    → %s (%s)' "${source:t}" "$size_display"
 
         local target_file="$target/${source:t}"
 
         # Check if target file exists and prompt for overwrite (interactive mode only)
         if [[ -f "$target_file" ]] && [[ -o interactive ]]; then
-            read -q "reply?File exists. Overwrite ${target_file:t}? [y/N] " </dev/tty
+            printf '\n%s\n' "⚠️  ${RED}Warning${NC}: ${CYAN}${target_file:t}${NC} already exists in ${CYAN}${args[-1]}${NC}!" >&2
+            read -q "reply?    Overwrite ${target_file:t}? [y/N] " </dev/tty
             echo
             if [[ "$reply" != [Yy] ]]; then
-                printf "Skipped: %s\n" "${source:t}"
+                printf '%s\n' "    Skipped: ${source:t}"
                 continue
             fi
         fi
@@ -579,7 +650,7 @@ _zsh_disk_guard_cp() {
         if (( cp_status != 0 )); then
             printf '\n❌ Error copying %s (exit code: %d)\n' "${source:t}" "$cp_status" >&2
             _zsh_disk_guard_deinit_term
-            # Restore settings
+            # Restore REPORTTIME settings
             if (( reporttime_was_set )); then
                 REPORTTIME=$saved_reporttime
             else
@@ -598,7 +669,6 @@ _zsh_disk_guard_cp() {
 
     # Ensure 100% at the end
     _zsh_disk_guard_progress_bar 100 100 $total_files
-
     _zsh_disk_guard_deinit_term
 
     # Calculate elapsed time and format it cleanly
@@ -622,7 +692,11 @@ _zsh_disk_guard_cp() {
     fi
 
     # Display success summary
-    printf '\n✅ Done! Copied %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_copied)" "$elapsed_display"
+    if [[ $total_bytes_copied = 0 ]]; then
+       printf '\n%s\n\n' "ℹ️   Nothing has changed!"
+    else
+       printf '\n\n✅  Done! Copied %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_copied)" "$elapsed_display"
+    fi
 
     # Restore REPORTTIME to original state
     if (( reporttime_was_set )); then
@@ -660,7 +734,66 @@ _zsh_disk_guard_mv() {
     local target="${args[-1]}"
     local sources=("${args[@]:0:-1}")
 
-    # Verify disk space before starting
+    # Color definitions
+    local GREEN=$'\e[0;32;40m'
+    local CYAN=$'\e[0;36;1m'
+    local YELLOW=$'\e[1;33;40m'
+    local RED=$'\e[0;31;40m'
+    local NC=$'\e[0m'
+
+    # ──────────────────────────────────────────────────────────────
+    # Check for missing source files BEFORE any other operation
+    # ──────────────────────────────────────────────────────────────
+    local missing_files=()
+    local existing_sources=()
+    
+    for source in "${sources[@]}"; do
+        if [[ ! -e "$source" ]]; then
+            missing_files+=("${source:t}")
+        else
+            existing_sources+=("$source")
+        fi
+    done
+
+    # If files are missing, warn user and ask whether to continue
+    if (( ${#missing_files[@]} > 0 )); then
+        printf '\n%s\n' "⚠️  ${RED}Warning${NC}: ${YELLOW}${#missing_files[@]}${NC} source file(s) ${RED}not found${NC}:" >&2
+        for file in "${missing_files[@]}"; do
+            printf '   %s %s\n' "❌" "${CYAN}${file}${NC}" >&2
+        done
+        printf '\n'
+        
+        if (( ${#existing_sources[@]} > 0 )); then
+            read -q "reply?Continue with remaining ${YELLOW}${#existing_sources[@]}${NC} file(s)? [y/N] " </dev/tty
+            echo
+            if [[ "$reply" != [Yy] ]]; then
+                printf '%s\n' "Operation cancelled."
+                # Restore settings before returning
+                if (( reporttime_was_set )); then
+                    REPORTTIME=$saved_reporttime
+                else
+                    unset REPORTTIME
+                fi
+                (( xtrace_was_set )) && set -x
+                return 1
+            fi
+        else
+            printf '%s\n' "❌ ${RED}Error${NC}: No valid source files found. Operation cancelled." >&2
+            # Restore settings before returning
+            if (( reporttime_was_set )); then
+                REPORTTIME=$saved_reporttime
+            else
+                unset REPORTTIME
+            fi
+            (( xtrace_was_set )) && set -x
+            return 1
+        fi
+        
+        # Update sources to only include existing files
+        sources=("${existing_sources[@]}")
+    fi
+
+    # Verify disk space before starting (only for existing files)
     _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
 
     local total_files=${#sources[@]}
@@ -687,10 +820,11 @@ _zsh_disk_guard_mv() {
 
         # Check if target file exists and prompt for overwrite (interactive mode only)
         if [[ -f "$target_file" ]] && [[ -o interactive ]]; then
-            read -q "reply?File exists. Overwrite ${target_file:t}? [y/N] " </dev/tty
+            printf '\n%s\n' "⚠️  ${RED}Warning${NC}: ${CYAN}${target_file:t}${NC} already exists in ${CYAN}${args[-1]}${NC}!" >&2
+            read -q "reply?    Overwrite ${target_file:t}? [y/N] " </dev/tty
             echo
             if [[ "$reply" != [Yy] ]]; then
-                printf "Skipped: %s\n" "${source:t}"
+                printf '%s\n' "    Skipped: ${source:t}"
                 continue
             fi
         fi
@@ -703,27 +837,33 @@ _zsh_disk_guard_mv() {
         if (( source_size > 0 )); then
             while kill -0 $mv_pid 2>/dev/null; do
                 if [[ -f "$target_file" ]]; then
+                    # Get current size of destination file
                     local cur_size=$(set +x; command stat -c%s "$target_file" 2>/dev/null || command stat -f%z "$target_file" 2>/dev/null || echo 0)
 
+                    # Calculate progress: (completed_files * 100 + current_file_percent) / total_files
                     local cur_file_pct=$((cur_size * 100 / source_size))
                     (( cur_file_pct > 100 )) && cur_file_pct=100
 
                     local tot_pct=$(( (file_idx - 1) * 100 + cur_file_pct ))
                     local overall_pct=$(( tot_pct / total_files ))
 
+                    # Show progress with file count
                     _zsh_disk_guard_progress_bar $overall_pct 100 $total_files
                 else
+                    # File doesn't exist yet, show progress for completed files
                     _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files $total_files
                 fi
                 sleep 0.1
             done
         else
+            # Unknown size or directory, just show file count progress
             while kill -0 $mv_pid 2>/dev/null; do
                 _zsh_disk_guard_progress_bar $file_idx $total_files $total_files
                 sleep 0.2
             done
         fi
 
+        # Wait for mv to complete and get exit status
         wait $mv_pid
         local mv_status=$?
 
@@ -731,7 +871,7 @@ _zsh_disk_guard_mv() {
         if (( mv_status != 0 )); then
             printf '\n❌ Error moving %s (exit code: %d)\n' "${source:t}" "$mv_status" >&2
             _zsh_disk_guard_deinit_term
-            # Restore settings
+            # Restore REPORTTIME settings
             if (( reporttime_was_set )); then
                 REPORTTIME=$saved_reporttime
             else
@@ -744,30 +884,40 @@ _zsh_disk_guard_mv() {
         # Add to total bytes moved
         (( total_bytes_moved += source_size ))
 
+        # Update progress bar for completed file
         _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100 $total_files
     done
 
+    # Ensure 100% at the end
     _zsh_disk_guard_progress_bar 100 100 $total_files
     _zsh_disk_guard_deinit_term
 
     # Calculate elapsed time and format it cleanly
     local elapsed=$((SECONDS - start_time))
     local elapsed_display
-    if (( elapsed < 60 )); then
-        elapsed_display="${elapsed}s"
-    elif (( elapsed < 3600 )); then
-        local minutes=$((elapsed / 60))
-        local seconds=$((elapsed % 60))
-        elapsed_display="${minutes}m ${seconds}s"
+
+    # Convert to integer to avoid floating point issues
+    local elapsed_int=${elapsed%.*}
+
+    if (( elapsed_int < 60 )); then
+        elapsed_display=$(printf '%ds' "$elapsed_int")
+    elif (( elapsed_int < 3600 )); then
+        local minutes=$((elapsed_int / 60))
+        local seconds=$((elapsed_int % 60))
+        elapsed_display=$(printf '%dm %ds' "$minutes" "$seconds")
     else
-        local hours=$((elapsed / 3600))
-        local minutes=$(((elapsed % 3600) / 60))
-        local seconds=$((elapsed % 60))
-        elapsed_display="${hours}h ${minutes}m ${seconds}s"
+        local hours=$((elapsed_int / 3600))
+        local minutes=$(((elapsed_int % 3600) / 60))
+        local seconds=$((elapsed_int % 60))
+        elapsed_display=$(printf '%dh %dm %ds' "$hours" "$minutes" "$seconds")
     fi
 
     # Display success summary
-    printf '\n✅ Done! Moved %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_moved)" "$elapsed_display"
+    if [[ $total_bytes_moved = 0 ]]; then
+       printf '\n%s\n\n' "ℹ️   Nothing has changed!"
+    else
+       printf '\n✅ Done! Moved %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_moved)" "$elapsed_display"
+    fi
 
     # Restore REPORTTIME to original state
     if (( reporttime_was_set )); then
@@ -784,7 +934,7 @@ _zsh_disk_guard_mv() {
 
 # ──────────────────────────────────────────────────────────────────
 # Wrapper for 'rsync' command with disk guard
-# Note: rsync has its own progress display, so we don't add our own
+# Note: rsync has its own progress display, so we don't need one to add
 # ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_rsync() {
     local LC_ALL=C
@@ -815,7 +965,7 @@ _zsh_disk_guard_rsync() {
         return $?
     fi
 
-    # Verify disk space, then run rsync with its own progress
+    # Verify disk space, then run rsync
     _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
     command rsync "$@"
     return $?
