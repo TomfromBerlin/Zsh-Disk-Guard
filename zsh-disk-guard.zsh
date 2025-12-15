@@ -13,21 +13,17 @@
 # "You can lead a horse to water, but you can't make it read warnings."
 #                                               — Ancient IT Wisdom
 # ──────────────────────────────────────────────────────────────────
-# ===================================================================
-# ──────────────────────────────────────────────────────────────────
 #  Version Check
 # ──────────────────────────────────────────────────────────────────
-# Load version comparison function
-if ! autoload -Uz is-at-least 2>/dev/null; then
-    print -P "%F{red}Error: Cannot load is-at-least function%f" >&2
-    return 1
-fi
-#
 # Require Zsh 5.0+
+autoload -Uz is-at-least
 if ! is-at-least 5.0; then
-    print -P "%B%F{red}Error: zsh-disk-guard requires Zsh >= 5.0%f" >&2
-    print -P "%B%F{yellow}You are using Zsh $ZSH_VERSION%f" >&2
-    print -P "%F{yellow}Consider an upgrade: https://www.zsh.org/%f" >&2
+    gdbus call --session \
+    --dest=org.freedesktop.Notifications \
+    --object-path=/org/freedesktop/Notifications \
+    --method=org.freedesktop.Notifications.Notify \
+    "" 0 "" "zramdisk Plugin Message" "Unsupported Zsh version $ZSH_VERSION. Expecting Zsh 5.0+! The plugin zramdisk was not loaded." \
+    '[]' '{"urgency": <1>}' 30000
     return 1
 fi
 #
@@ -311,8 +307,6 @@ _zsh_disk_guard_verify() {
                     read -q "REPLY?Continue anyway? [y/N] "
                     echo
                     [[ "$REPLY" != [Yy] ]] && return 1
-                else
-                    return 1
                 fi
             fi
             return 0
