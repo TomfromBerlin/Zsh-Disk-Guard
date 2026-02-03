@@ -5,6 +5,13 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=plastic">
   <img src="https://img.shields.io/github/stars/TomfromBerlin/zsh-disk-guard?style=plastic">
   <img src="https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue">
+<<<<<<< Updated upstream
+=======
+  </p>
+  
+_Memo to self: They'll clone this repository again and again and not leave a single comment. Yes, not even a tiny star. But at least my code is traveling around the world._
+
+>>>>>>> Stashed changes
 <!--
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/TomfromBerlin/zsh-disk-guard/total?style=plastic&labelColor=grey&color=blue)
 -->
@@ -24,7 +31,11 @@ _Memo to self: They'll clone this repository again and again and not leave a sin
  echo "source ~/.config/zsh/plugins/zsh-disk-guard/zsh-disk-guard.plugin.zsh" >> ~/.zshrc
  source ~/.zshrc
 ```
+<<<<<<< Updated upstream
 For installation with the plugin manager or framework of your choice, see the 🛠️ Install section.
+=======
+This will only run the plugin temporarily. For a permanent installation, see the [Install](#install) section.
+>>>>>>> Stashed changes
 </details>
 
 ## ✨ Features
@@ -40,7 +51,11 @@ For installation with the plugin manager or framework of your choice, see the �
 
 ## 🖥️ Usage
 
+<<<<<<< Updated upstream
 Since this is a plugin, manual execution is neither necessary nor useful. The plugin reacts to certain triggers and executes the corresponding actions automatically. Simply use `cp`, `mv`, and `rsync` as usual, e.g., `cp <source> <dest>`. No additional options should be specified. The plugin in action can be seen in the following clip. The plugin's status can be checked via the command line. See the 🎛️ Control section for more information.
+=======
+Since this is a plugin, manual execution is neither necessary nor useful. The plugin reacts to certain triggers and executes the corresponding actions automatically. Simply use `cp`, `mv`, and `rsync` as usual, e.g., `cp <source> <dest>`. No additional options should be specified. The plugin in action can be seen in the following clip. The plugin's status can be checked via the command line. See the [Control](#control) section for more information.
+>>>>>>> Stashed changes
 
 <details><summary> ← Click here to see two output examples with low disk space warning</summary>
 
@@ -68,7 +83,11 @@ rsync -av files/ user@remote:/backup/  # No local check
 
 | 👁️‍🗨️ Note |
 |:-|
+<<<<<<< Updated upstream
 | The plugin uses its own options for the **`cp`** and **`mv`** commands, so if you use this plugin _and_ **`cp`** and/or **`mv`** in other scripts, you should consider prefixing the commands in those scripts with `command`, e.g., `command cp <source> <dest>`. Existing aliases are ignored because the plugin calls these tools with the `command` prefix. That said, if you rely on your existing aliases, you should not consider using this plugin.
+=======
+| The plugin uses its own aliases for the **`cp`** and **`mv`** commands, so if you use this plugin and **`cp`** _and/or_ **`mv`** in other scripts, you should consider prefixing the commands in those scripts with `command`, e.g., `command cp <source> <dest>`. Existing aliases are ignored because the plugin calls these programs with the `command` prefix. That said, if you rely on your existing aliases, you should not consider using this plugin.
+>>>>>>> Stashed changes
 The functionality of the **`rsync`** program is barely affected. The plugin only checks whether the target is local or remote and whether **`rsync`** was called with options. If the target is remote or unclear, or if options are detected, all checks are skipped. If **`rsync`** is called without options and the destination is local but there is not enough disk space, a warning will be issued and a request will be made as to whether the file operation should be performed anyway. Apart from that, **`rsync`** is always called only with the user-specific options (if any), since it has its own output (e.g. its own progress bar). |
 
 ## ❔ Why This Plugin?
@@ -276,8 +295,12 @@ export ZSH_DISK_GUARD_DEBUG=1
 export ZSH_DISK_GUARD_ENABLED=0
 
 # ──────────────────────────────────────────────────────────────────
+<<<<<<< Updated upstream
 # Only play around with the following settings if you really know what you're doing!
 # I'm serious!
+=======
+# Only play around with the following settings if you really know what you're doing! I'm serious!
+>>>>>>> Stashed changes
 
 # commands to be wrapped, separated by spaces (default: "cp mv rsync")
 export ZSH_DISK_GUARD_COMMANDS="cp mv rsync"
