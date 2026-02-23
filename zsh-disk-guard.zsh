@@ -387,9 +387,6 @@ _zsh_disk_guard_progress_bar() {
   local total=$2
   local file_count=${3:-0}
 
-  local COLUMNS=$(tput cols)
-  local LINES=$(tput lines)
-
   # Color definitions
   local GREEN=$'\e[0;32;40m'
   local BROWN=$'\e[0;33;40m'
@@ -446,11 +443,11 @@ _zsh_disk_guard_progress_bar() {
   bar+=']'
 
   # Display progress bar at bottom of terminal
-  printf '\e[s'                    # Save cursor position
-  printf '\e[%d;1H' "$LINES"       # Move to bottom row, first column
+  printf '\e[s'                      # Save cursor position
+  printf '\e[%d;1H' "$LINES"         # Move to bottom row, first column
   printf '%s Files: %d (%s%d%%%s)' "$bar" "$file_count" "$perc_color" "$perc_done" "$NC"
-  printf '\e[K'                    # Clear rest of line
-  printf '\e[u'                    # Restore cursor position
+  printf '\e[K'                      # Clear rest of line
+  printf '\e[u'                      # Restore cursor position
 }
 
 # ──────────────────────────────────────────────────────────────────
@@ -459,15 +456,12 @@ _zsh_disk_guard_progress_bar() {
 # - Makes cursor invisible
 # ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_init_term() {
-    local COLUMNS=$(tput cols)
-    local LINES=$(tput lines)
-
-    printf '\n'                                # Ensure space for progress bar
-    printf '\e[s'                              # Save cursor location
-    printf '\e[%d;%dr' 1 "$((LINES -1))"       # Set scrollable region (leave bottom line)
-    printf '\e[u'                              # Restore cursor location
-    printf '\e[1A'                             # Move cursor up one line
-    tput civis                                 # Make cursor invisible
+    printf '\n'                                          # Ensure space for progress bar
+    printf '\e[s'                                        # Save cursor location
+    printf '\e[%d;%dr' 1 "$((LINES - 1))"               # Set scrollable region (leave bottom line)
+    printf '\e[u'                                        # Restore cursor location
+    printf '\e[1A'                                       # Move cursor up one line
+    tput civis                                           # Make cursor invisible
 }
 
 # ──────────────────────────────────────────────────────────────────
@@ -476,15 +470,12 @@ _zsh_disk_guard_init_term() {
 # - Makes cursor visible again
 # ──────────────────────────────────────────────────────────────────
 _zsh_disk_guard_deinit_term() {
-  local COLUMNS=$(tput cols)
-  local LINES=$(tput lines)
-
-  printf '\e[s'                          # Save cursor location
-  printf '\e[%d;%dr' 1 "$LINES"          # Reset scrollable region
-  printf '\e[%d;%dH' "$LINES" 1          # Move to bottom line
-  printf '\e[0K'                         # Clear the line
-  printf '\e[u'                          # Restore cursor location
-  tput cnorm                             # Make cursor visible
+  printf '\e[s'                              # Save cursor location
+  printf '\e[%d;%dr' 1 "$LINES"             # Reset scrollable region
+  printf '\e[%d;%dH' "$LINES" 1             # Move to bottom line
+  printf '\e[0K'                            # Clear the line
+  printf '\e[u'                             # Restore cursor location
+  tput cnorm                                # Make cursor visible
 }
 
 # ──────────────────────────────────────────────────────────────────
@@ -1097,8 +1088,6 @@ if [[ -z $ZSH_DG_INTERFACE_DEFINED ]]; then
         local cmd=$1
         [[ -z $1 ]] && { zshdg_help; return 0; }
         shift
-
-#        local cmd=${1:-}; (( $# )) && shift
         local plugin_file="${ZSH_DISK_GUARD_PLUGIN_DIR:-$ZPLUGINDIR/zsh-disk-guard}/zsh-disk-guard.zsh"
 
         case "$cmd" in
