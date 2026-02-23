@@ -12,11 +12,6 @@
 # ──────────────────────────────────────────────────────────────────
 # "You can lead a horse to water, but you can't make it read warnings."
 #                                               — Ancient IT Wisdom
-<<<<<<< Updated upstream
-# ──────────────────────────────────────────────────────────────────
-#  Version Check
-# ──────────────────────────────────────────────────────────────────
-=======
 # ──────────────────────────────────────────────────────────────────
 # ===================================================================
 # ──────────────────────────────────────────────────────────────────
@@ -28,7 +23,6 @@ if ! autoload -Uz is-at-least 2>/dev/null; then
     return 1
 fi
 #
->>>>>>> Stashed changes
 # Require Zsh 5.0+
 autoload -Uz is-at-least
 if ! is-at-least 5.0; then
@@ -55,17 +49,6 @@ fi
 typeset -g _zsh_disk_guard_loaded=1
 typeset -g ZSH_DISK_GUARD_PLUGIN_DIR="${0:A:h}"
 #
-<<<<<<< Updated upstream
-# ──────────────────────────────────────────────────────────────────
-# Redraw prompt when terminal size changes
-# ──────────────────────────────────────────────────────────────────
-ZSH_DISK_GUARD_TRAPWINCH() {
-  zle && zle -R
-}
-TRAPWINCH
-#
-=======
->>>>>>> Stashed changes
 # ──────────────────────────────────────────────────────────────────
 # Redraw prompt when terminal size changes
 # ──────────────────────────────────────────────────────────────────
@@ -324,11 +307,7 @@ _zsh_disk_guard_verify() {
 
     if (( needs_deep_check == 0 )); then
         _zsh_disk_guard_debug "Quick check: $(_zsh_disk_guard_format_size $estimated_size)"
-<<<<<<< Updated upstream
-        if (( estimated_size < ZSH_DISK_GUARD_DEEP_THRESHOLD )); then
-=======
         if (( estimated_size < ZSH_DISK_GUARD_SCAN_THRESHOLD )); then
->>>>>>> Stashed changes
             if (( usage >= ZSH_DISK_GUARD_THRESHOLD )); then
                 printf '\n%s\n' "⚠️  ${RED}Warning${NC}: Partition ${CYAN}$mountpoint${NC} is ${YELLOW}${usage}%${NC} full!" >&2
                 if [[ -o interactive || -t 0 ]]; then
@@ -541,30 +520,13 @@ _zsh_disk_guard_cp() {
     local YELLOW=$'\e[1;33;40m'
     local RED=$'\e[0;31;40m'
     local NC=$'\e[0m'
-<<<<<<< Updated upstream
 
     # ──────────────────────────────────────────────────────────────
     # Check for missing source files BEFORE any other operation
     # ──────────────────────────────────────────────────────────────
     local missing_files=()
     local existing_sources=()
-    
-    for source in "${sources[@]}"; do
-        if [[ ! -e "$source" ]]; then
-            missing_files+=("${source:t}")
-        else
-            existing_sources+=("$source")
-        fi
-    done
 
-=======
-
-    # ──────────────────────────────────────────────────────────────
-    # Check for missing source files BEFORE any other operation
-    # ──────────────────────────────────────────────────────────────
-    local missing_files=()
-    local existing_sources=()
-    
     for source in "${sources[@]}"; do
         if [[ ! -e "$source" ]]; then
             missing_files+=("${source:t}")
@@ -580,7 +542,7 @@ _zsh_disk_guard_cp() {
             printf '   %s %s\n' "❌" "${CYAN}${file}${NC}" >&2
         done
         printf '\n'
-        
+
         if (( ${#existing_sources[@]} > 0 )); then
             read -q "reply?Continue with remaining ${YELLOW}${#existing_sources[@]}${NC} file(s)? [y/N] " </dev/tty
             echo
@@ -606,7 +568,7 @@ _zsh_disk_guard_cp() {
             (( xtrace_was_set )) && set -x
             return 1
         fi
-        
+
         # Update sources to only include existing files
         sources=("${existing_sources[@]}")
     fi
@@ -785,7 +747,7 @@ _zsh_disk_guard_mv() {
     # ──────────────────────────────────────────────────────────────
     local missing_files=()
     local existing_sources=()
-    
+
     for source in "${sources[@]}"; do
         if [[ ! -e "$source" ]]; then
             missing_files+=("${source:t}")
@@ -801,7 +763,7 @@ _zsh_disk_guard_mv() {
             printf '   %s %s\n' "❌" "${CYAN}${file}${NC}" >&2
         done
         printf '\n'
-        
+
         if (( ${#existing_sources[@]} > 0 )); then
             read -q "reply?Continue with remaining ${YELLOW}${#existing_sources[@]}${NC} file(s)? [y/N] " </dev/tty
             echo
@@ -827,7 +789,7 @@ _zsh_disk_guard_mv() {
             (( xtrace_was_set )) && set -x
             return 1
         fi
-        
+
         # Update sources to only include existing files
         sources=("${existing_sources[@]}")
     fi
@@ -1011,189 +973,6 @@ _zsh_disk_guard_rsync() {
 }
 
 # ──────────────────────────────────────────────────────────────────
-=======
-    fi
-
-    # Verify disk space before starting (only for existing files)
-    _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
-
-    local total_files=${#sources[@]}
-    local file_idx=0
-    local total_bytes_moved=0
-    local start_time=$SECONDS
-
-    _zsh_disk_guard_init_term
-
-    # Disable job control messages
-    setopt LOCAL_OPTIONS NO_NOTIFY NO_MONITOR
-
-    for source in "${sources[@]}"; do
-        (( file_idx++ ))
-
-        # Get source file size for progress calculation
-        local source_size=$(set +x; [[ -f "$source" ]] && (command stat -c%s "$source" 2>/dev/null || command stat -f%z "$source" 2>/dev/null || echo 0) || echo 0)
-
-        # Display current file with size
-        local size_display=$(_zsh_disk_guard_format_size $source_size)
-        printf '→ %s (%s)\n' "${source:t}" "$size_display"
-
-        local target_file="$target/${source:t}"
-
-        # Check if target file exists and prompt for overwrite (interactive mode only)
-        if [[ -f "$target_file" ]] && [[ -o interactive ]]; then
-            printf '\n%s\n' "⚠️  ${RED}Warning${NC}: ${CYAN}${target_file:t}${NC} already exists in ${CYAN}${args[-1]}${NC}!" >&2
-            read -q "reply?    Overwrite ${target_file:t}? [y/N] " </dev/tty
-            echo
-            if [[ "$reply" != [Yy] ]]; then
-                printf '%s\n' "    Skipped: ${source:t}"
-                continue
-            fi
-        fi
-
-        # Start mv in background (with -f to force overwrite after user confirmation)
-        command mv -f "$source" "$target" &
-        local mv_pid=$!
-
-        # Monitor move progress
-        if (( source_size > 0 )); then
-            while kill -0 $mv_pid 2>/dev/null; do
-                if [[ -f "$target_file" ]]; then
-                    # Get current size of destination file
-                    local cur_size=$(set +x; command stat -c%s "$target_file" 2>/dev/null || command stat -f%z "$target_file" 2>/dev/null || echo 0)
-
-                    # Calculate progress: (completed_files * 100 + current_file_percent) / total_files
-                    local cur_file_pct=$((cur_size * 100 / source_size))
-                    (( cur_file_pct > 100 )) && cur_file_pct=100
-
-                    local tot_pct=$(( (file_idx - 1) * 100 + cur_file_pct ))
-                    local overall_pct=$(( tot_pct / total_files ))
-
-                    # Show progress with file count
-                    _zsh_disk_guard_progress_bar $overall_pct 100 $total_files
-                else
-                    # File doesn't exist yet, show progress for completed files
-                    _zsh_disk_guard_progress_bar $((file_idx - 1)) $total_files $total_files
-                fi
-                sleep 0.1
-            done
-        else
-            # Unknown size or directory, just show file count progress
-            while kill -0 $mv_pid 2>/dev/null; do
-                _zsh_disk_guard_progress_bar $file_idx $total_files $total_files
-                sleep 0.2
-            done
-        fi
-
-        # Wait for mv to complete and get exit status
-        wait $mv_pid
-        local mv_status=$?
-
-        # Check if mv failed
-        if (( mv_status != 0 )); then
-            printf '\n❌ Error moving %s (exit code: %d)\n' "${source:t}" "$mv_status" >&2
-            _zsh_disk_guard_deinit_term
-            # Restore REPORTTIME settings
-            if (( reporttime_was_set )); then
-                REPORTTIME=$saved_reporttime
-            else
-                unset REPORTTIME
-            fi
-            (( xtrace_was_set )) && set -x
-            return $mv_status
-        fi
-
-        # Add to total bytes moved
-        (( total_bytes_moved += source_size ))
-
-        # Update progress bar for completed file
-        _zsh_disk_guard_progress_bar $(( file_idx * 100 / total_files )) 100 $total_files
-    done
-
-    # Ensure 100% at the end
-    _zsh_disk_guard_progress_bar 100 100 $total_files
-    _zsh_disk_guard_deinit_term
-
-    # Calculate elapsed time and format it cleanly
-    local elapsed=$((SECONDS - start_time))
-    local elapsed_display
-
-    # Convert to integer to avoid floating point issues
-    local elapsed_int=${elapsed%.*}
-
-    if (( elapsed_int < 60 )); then
-        elapsed_display=$(printf '%ds' "$elapsed_int")
-    elif (( elapsed_int < 3600 )); then
-        local minutes=$((elapsed_int / 60))
-        local seconds=$((elapsed_int % 60))
-        elapsed_display=$(printf '%dm %ds' "$minutes" "$seconds")
-    else
-        local hours=$((elapsed_int / 3600))
-        local minutes=$(((elapsed_int % 3600) / 60))
-        local seconds=$((elapsed_int % 60))
-        elapsed_display=$(printf '%dh %dm %ds' "$hours" "$minutes" "$seconds")
-    fi
-
-    # Display success summary
-    if [[ $total_bytes_moved = 0 ]]; then
-       printf '\n%s\n\n' "ℹ️   Nothing has changed!"
-    else
-       printf '\n✅ Done! Moved %s in %s\n\n' "$(_zsh_disk_guard_format_size $total_bytes_moved)" "$elapsed_display"
-    fi
-
-    # Restore REPORTTIME to original state
-    if (( reporttime_was_set )); then
-        REPORTTIME=$saved_reporttime
-    else
-        unset REPORTTIME
-    fi
-
-    # Restore xtrace if it was set
-    (( xtrace_was_set )) && set -x
-
-    return 0
-}
-
-# ──────────────────────────────────────────────────────────────────
-# Wrapper for 'rsync' command with disk guard
-# Note: rsync has its own progress display, so we don't need one to add
-# ──────────────────────────────────────────────────────────────────
-_zsh_disk_guard_rsync() {
-    local LC_ALL=C
-    (( ZSH_DISK_GUARD_ENABLED )) || { command rsync "$@"; return $?; }
-
-    local args=("$@")
-    local target="${args[-1]}"
-    local sources=("${args[@]:0:-1}")
-
-    # Remote target? Skip check
-    if [[ "$target" == *:* ]]; then
-        _zsh_disk_guard_debug "Remote target → skip check"
-        command rsync "$@"
-        return $?
-    fi
-
-    # Option-like target? Skip check
-    if [[ "$target" == -* ]]; then
-        _zsh_disk_guard_debug "Option detected → skip check"
-        command rsync "$@"
-        return $?
-    fi
-
-    # Unclear target? Skip check
-    if [[ ! -e "$target" && "$target" != */* ]]; then
-        _zsh_disk_guard_debug "Unclear target → skip check"
-        command rsync "$@"
-        return $?
-    fi
-
-    # Verify disk space, then run rsync
-    _zsh_disk_guard_verify "$target" "${sources[@]}" || return 1
-    command rsync "$@"
-    return $?
-}
-
-# ──────────────────────────────────────────────────────────────────
->>>>>>> Stashed changes
 #  Plugin Management Functions
 # ──────────────────────────────────────────────────────────────────
 
@@ -1244,12 +1023,6 @@ for cmd in ${(z)ZSH_DISK_GUARD_COMMANDS}; do
     fi
 done
 
-<<<<<<< Updated upstream
-=======
-# zsh_disk_guard_threshold() {
-# zsh_disk_guard_plugin_unload && export ZSH_DISK_GUARD_THRESHOLD=("$@") && source $ZPLUGINDIR/zsh-disk-guard/zsh-disk-guard.zsh
-# }
->>>>>>> Stashed changes
 # ──────────────────────────────────────────────────────────────────
 #  Cleanup Function - Unload plugin completely
 # ──────────────────────────────────────────────────────────────────
@@ -1264,30 +1037,17 @@ zsh_disk_guard_plugin_unload() {
 
     # Unset functions
     unfunction -m '_zsh_disk_guard_*' 2>/dev/null
-<<<<<<< Updated upstream
-    unfunction -m 'zsh-disk-guard-*' 2>/dev/null
-    unfunction zsh_disk_guard_plugin_unload 2>/dev/null
-    unfunction zsh_disk_guard_df 2>/dev/null
-=======
     unfunction -m 'zsh_disk_guard_*' 2>/dev/null
->>>>>>> Stashed changes
 
-    # Optional: keep plugin dir for reloads
-    unset ZSH_DISK_GUARD_{THRESHOLD,DEEP_THRESHOLD,DEBUG,ENABLED,COMMANDS}
-<<<<<<< Updated upstream
-    unset _zsh_disk_guard_loaded ZSH_DISK_GUARD_PLUGIN_DIR
-
-    print -P "%F{green}✓%f Disk guard plugin unloaded successfully"
-=======
+    unset ZSH_DISK_GUARD_{THRESHOLD,SCAN_THRESHOLD,DEBUG,ENABLED,COMMANDS}
     unset _zsh_disk_guard_loaded
 
-    printf '%s\n' "${GREEN}[zsh-disk-guard]${NC} plugin unloaded successfully."
->>>>>>> Stashed changes
+    printf '%s\n' "[zsh-disk-guard] plugin unloaded successfully."
 }
 
-# ──────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────
 # Zsh-Disk-Guard: Help & Control Interface
-# ──────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────
 zshdg_help() {
     # Farben lokal halten (kein Leakage in den globalen Namespace)
     local GREEN=$'\e[0;32m'
@@ -1334,7 +1094,11 @@ if [[ -z $ZSH_DG_INTERFACE_DEFINED ]]; then
         local RED=$'\e[0;31;40m'
         local NC=$'\e[0m'
 
-        local cmd=$1; shift || true
+        local cmd=$1
+        [[ -z $1 ]] && { zshdg_help; return 0; }
+        shift
+
+#        local cmd=${1:-}; (( $# )) && shift
         local plugin_file="${ZSH_DISK_GUARD_PLUGIN_DIR:-$ZPLUGINDIR/zsh-disk-guard}/zsh-disk-guard.zsh"
 
         case "$cmd" in
@@ -1346,7 +1110,7 @@ if [[ -z $ZSH_DG_INTERFACE_DEFINED ]]; then
                 ;;
 
             unload)
-                whence -w zsh_disk_guard_plugin_unload &>/dev/null && zsh_disk-guard_plugin_unload
+                whence -w zsh_disk_guard_plugin_unload &>/dev/null && zsh_disk_guard_plugin_unload
                 ;;
 
             enable)
@@ -1357,7 +1121,7 @@ if [[ -z $ZSH_DG_INTERFACE_DEFINED ]]; then
                 whence -w zsh_disk_guard_disable &>/dev/null && zsh_disk_guard_disable
                 ;;
 
-     help|-h|--help)
+            help|-h|--help)
                 whence -w zshdg_help &>/dev/null && zshdg_help
                 ;;
 
@@ -1421,7 +1185,7 @@ if [[ -z $ZSH_DG_INTERFACE_DEFINED ]]; then
                 ;;
 
             *)
-                printf '%s\n' "Enter ${CYAN}zshdg help${CNC} for help"
+                printf '%s\n' "Enter ${CYAN}zshdg help${NC} for help"
                 ;;
         esac
     }
@@ -1443,7 +1207,7 @@ if [[ -z $ZSH_DG_INTERFACE_DEFINED ]]; then
             elif (( CURRENT == 4 )); then
                 case "${words[3]}" in
                     debug) compadd -a debug_opts ;;
-                    *) ;; # for numerical values ​​we leave free input
+                    *) ;; # for numerical values we leave free input
                 esac
             fi
         fi
